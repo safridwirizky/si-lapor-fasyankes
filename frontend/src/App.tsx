@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Header } from './components/Header';
 import { NavigationTabs } from './components/NavigationTabs';
 import { DashboardOverview } from './components/DashboardOverview';
@@ -22,14 +22,6 @@ import {
 } from './types';
 
 import { 
-  INITIAL_KUNJUNGAN, 
-  INITIAL_GIGI, 
-  INITIAL_PENYAKIT, 
-  INITIAL_LAB, 
-  INITIAL_RUJUKAN 
-} from './data/initialData';
-
-import { 
   exportKunjunganToExcel, 
   exportGigiToExcel, 
   exportPenyakitToExcel, 
@@ -37,13 +29,63 @@ import {
   exportRujukanToExcel 
 } from './utils/excelUtil';
 
+// Base URL Django REST API. Sesuaikan kalau backend jalan di host/port lain,
+// atau pindahkan ke .env (VITE_API_BASE_URL) supaya beda antara dev & production.
+const API_BASE_URL = 'http://127.0.0.1:8000/api';
+
+// Helper: ambil SEMUA data dari endpoint DRF, termasuk yang dipaging (mengikuti "next").
+// Kalau endpoint kamu tidak dipaging (langsung array), fungsi ini tetap aman dipakai.
+async function fetchAllFromApi<T>(path: string): Promise<T[]> {
+  let url: string | null = `${API_BASE_URL}${path}`;
+  const results: T[] = [];
+
+  while (url) {
+    const res = await fetch(url);
+    if (!res.ok) {
+      throw new Error(`Gagal memuat ${path} (HTTP ${res.status})`);
+    }
+    const json = await res.json();
+
+    if (Array.isArray(json)) {
+      // Endpoint tanpa pagination -> langsung array
+      results.push(...json);
+      url = null;
+    } else {
+      // Endpoint dengan pagination DRF standar -> { count, next, previous, results }
+      results.push(...(json.results ?? []));
+      url = json.next;
+    }
+  }
+
+  return results;
+}
+
+// Helper: kirim record baru ke Django lewat POST, balikin record yang sudah
+// tersimpan (lengkap dengan id asli dari database).
+async function postToApi<T>(path: string, payload: any): Promise<T> {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const errBody = await res.text();
+    throw new Error(`Gagal menyimpan ke ${path} (HTTP ${res.status}): ${errBody}`);
+  }
+  return res.json();
+}
+
 export default function App() {
   // Datasets
-  const [kunjunganData, setKunjunganData] = useState<KunjunganRecord[]>(INITIAL_KUNJUNGAN);
-  const [gigiData, setGigiData] = useState<GigiRecord[]>(INITIAL_GIGI);
-  const [penyakitData, setPenyakitData] = useState<PenyakitRecord[]>(INITIAL_PENYAKIT);
-  const [labData, setLabData] = useState<LabRecord[]>(INITIAL_LAB);
-  const [rujukanData, setRujukanData] = useState<RujukanRecord[]>(INITIAL_RUJUKAN);
+  const [kunjunganData, setKunjunganData] = useState<KunjunganRecord[]>([]);
+  const [gigiData, setGigiData] = useState<GigiRecord[]>([]);
+  const [penyakitData, setPenyakitData] = useState<PenyakitRecord[]>([]);
+  const [labData, setLabData] = useState<LabRecord[]>([]);
+  const [rujukanData, setRujukanData] = useState<RujukanRecord[]>([]);
+
+  // Status pengambilan data dari API
+  const [isDataLoading, setIsDataLoading] = useState(true);
+  const [dataError, setDataError] = useState<string | null>(null);
 
   // Tab & Filters
   const [activeTab, setActiveTab] = useState<ReportType>('overview');
@@ -56,6 +98,45 @@ export default function App() {
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiResponse, setAiResponse] = useState<AiAnalysisResponse | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
+
+  // Ambil semua data laporan dari backend Django REST Framework.
+  // Sesuaikan path endpoint (/kunjungan/, /gigi/, dst.) dengan urls.py backend kamu.
+  const loadAllData = useCallback(async () => {
+    setIsDataLoading(true);
+    setDataError(null);
+    try {
+      const [kunjungan, gigi, penyakit, lab, rujukan] = await Promise.all([
+        fetchAllFromApi<KunjunganRecord>('/kunjungan/'),
+        fetchAllFromApi<GigiRecord>('/gigi/'),
+        fetchAllFromApi<PenyakitRecord>('/penyakit/'),
+        fetchAllFromApi<LabRecord>('/laboratorium/'),
+        fetchAllFromApi<RujukanRecord>('/rujukan/'),
+      ]);
+
+      setKunjunganData(kunjungan);
+      setGigiData(gigi);
+      setPenyakitData(penyakit);
+      setLabData(lab);
+      setRujukanData(rujukan);
+    } catch (err: any) {
+      setDataError(err.message || 'Gagal memuat data dari server. Pastikan backend Django berjalan.');
+    } finally {
+      setIsDataLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadAllData();
+  }, [loadAllData]);
+
+  // Simpan record Gigi baru ke Django, baru update state pakai hasil dari server
+  // (supaya id-nya id asli dari database, bukan id sementara buatan browser).
+  // payload TIDAK termasuk id -- backend yang generate.
+  const createGigiRecord = async (payload: Omit<GigiRecord, 'id' | 'rasioTumpatanPencabutan' | 'persenKasusDirujuk'>) => {
+    const saved = await postToApi<GigiRecord>('/gigi/', payload);
+    setGigiData(prev => [saved, ...prev]);
+    return saved;
+  };
 
   // Handle Export based on current tab
   const handleExportCurrent = () => {
@@ -73,6 +154,10 @@ export default function App() {
   };
 
   // Handle Import Success
+  // CATATAN: saat ini hasil import Excel hanya masuk ke state lokal (tidak dikirim
+  // ke backend). Kalau mau data hasil import ikut tersimpan permanen di Django,
+  // ExcelImportModal perlu di-update untuk POST tiap record ke endpoint terkait
+  // (mis. POST /api/kunjungan/), baru lalu panggil loadAllData() untuk re-sync.
   const handleImportSuccess = (parsedRecords: any[], category: string) => {
     if (category === 'kunjungan') {
       setKunjunganData(prev => [...parsedRecords, ...prev]);
@@ -167,7 +252,26 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        
+
+        {dataError && (
+          <div className="mb-6 rounded-lg border border-red-300 bg-red-50 text-red-800 px-4 py-3 flex items-center justify-between gap-4">
+            <span className="text-sm">{dataError}</span>
+            <button
+              onClick={loadAllData}
+              className="text-sm font-semibold text-red-700 hover:text-red-900 underline shrink-0"
+            >
+              Coba Lagi
+            </button>
+          </div>
+        )}
+
+        {isDataLoading ? (
+          <div className="flex flex-col items-center justify-center py-24 text-slate-500">
+            <div className="h-8 w-8 border-4 border-slate-300 border-t-emerald-500 rounded-full animate-spin mb-3" />
+            <p>Memuat data dari server...</p>
+          </div>
+        ) : (
+        <>
         {activeTab === 'overview' && (
           <DashboardOverview
             kunjunganData={kunjunganData}
@@ -191,6 +295,7 @@ export default function App() {
           <GigiReportView
             data={gigiData}
             setData={setGigiData}
+            onCreateRecord={createGigiRecord}
             selectedMonth={selectedMonth}
             selectedPuskesmas={selectedPuskesmas}
           />
@@ -221,6 +326,8 @@ export default function App() {
             selectedMonth={selectedMonth}
             selectedPuskesmas={selectedPuskesmas}
           />
+        )}
+        </>
         )}
 
       </main>

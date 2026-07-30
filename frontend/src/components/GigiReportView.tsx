@@ -14,6 +14,7 @@ import { GigiRecord, MonthName, PUSKESMAS_LIST, MONTHS } from '../types';
 interface GigiReportViewProps {
   data: GigiRecord[];
   setData: React.Dispatch<React.SetStateAction<GigiRecord[]>>;
+  onCreateRecord: (payload: Omit<GigiRecord, 'id' | 'rasioTumpatanPencabutan' | 'persenKasusDirujuk'>) => Promise<GigiRecord>;
   selectedMonth: MonthName | 'Semua';
   selectedPuskesmas: string;
 }
@@ -21,12 +22,15 @@ interface GigiReportViewProps {
 export const GigiReportView: React.FC<GigiReportViewProps> = ({
   data,
   setData,
+  onCreateRecord,
   selectedMonth,
   selectedPuskesmas
 }) => {
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Form state
   const [newPkm, setNewPkm] = useState(PUSKESMAS_LIST[0]);
@@ -54,29 +58,39 @@ export const GigiReportView: React.FC<GigiReportViewProps> = ({
   const overallRatio = totalPencabutan > 0 ? (totalTumpatan / totalPencabutan).toFixed(2) : totalTumpatan.toFixed(2);
   const overallRujukanPct = totalKasus > 0 ? ((totalRujuk / totalKasus) * 100).toFixed(1) + '%' : '0%';
 
-  const handleAddRecord = (e: React.FormEvent) => {
+  const handleAddRecord = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newRecord: GigiRecord = {
-      id: `g-${Date.now()}`,
-      puskesmas: newPkm,
-      month: newMonth,
-      year: 2026,
-      tumpatanGigiTetap: Number(tumpatan),
-      pencabutanGigiTetap: Number(pencabutan),
-      jumlahKunjungan: Number(kunjungan || Number(tumpatan) + Number(pencabutan)),
-      jumlahKasusGigi: Number(kasus || Number(kunjungan)),
-      jumlahKasusDirujuk: Number(rujuk)
-    };
-    setData([newRecord, ...data]);
-    setShowAddForm(false);
-    setTumpatan(0); setPencabutan(0); setKunjungan(0); setKasus(0); setRujuk(0);
+    setSaveError(null);
+    setIsSaving(true);
+    try {
+      await onCreateRecord({
+        puskesmas: newPkm,
+        month: newMonth,
+        year: 2026,
+        tumpatanGigiTetap: Number(tumpatan),
+        pencabutanGigiTetap: Number(pencabutan),
+        jumlahKunjungan: Number(kunjungan || Number(tumpatan) + Number(pencabutan)),
+        jumlahKasusGigi: Number(kasus || Number(kunjungan)),
+        jumlahKasusDirujuk: Number(rujuk),
+      });
+      setShowAddForm(false);
+      setTumpatan(0); setPencabutan(0); setKunjungan(0); setKasus(0); setRujuk(0);
+    } catch (err: any) {
+      setSaveError(err.message || 'Gagal menyimpan data ke server.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleFieldChange = (id: string, field: keyof GigiRecord, val: any) => {
+  // CATATAN: edit & hapus di bawah ini MASIH lokal saja (belum PATCH/DELETE ke
+  // backend), jadi perubahan lewat 2 aksi ini akan hilang lagi saat reload.
+  // Perlu endpoint PATCH /api/gigi/{id}/ dan DELETE /api/gigi/{id}/ untuk
+  // membuat ini persist juga -- beri tahu saya kalau mau sekalian dibereskan.
+  const handleFieldChange = (id: number, field: keyof GigiRecord, val: any) => {
     setData(prev => prev.map(item => item.id === id ? { ...item, [field]: val } : item));
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = (id: number) => {
     setData(prev => prev.filter(item => item.id !== id));
   };
 
@@ -121,6 +135,12 @@ export const GigiReportView: React.FC<GigiReportViewProps> = ({
       {showAddForm && (
         <form onSubmit={handleAddRecord} className="bg-teal-50/70 border border-teal-200 p-5 rounded-xl space-y-4">
           <h3 className="text-xs font-bold text-teal-900 uppercase tracking-wider">Input Laporan Kesehatan Gigi Baru</h3>
+
+          {saveError && (
+            <div className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-lg p-2">
+              {saveError}
+            </div>
+          )}
           
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
             <div>
@@ -160,7 +180,9 @@ export const GigiReportView: React.FC<GigiReportViewProps> = ({
 
           <div className="flex justify-end space-x-2 pt-2">
             <button type="button" onClick={() => setShowAddForm(false)} className="px-3 py-1.5 text-xs text-slate-600 bg-white border rounded-lg">Batal</button>
-            <button type="submit" className="px-4 py-1.5 text-xs font-semibold bg-teal-600 text-white rounded-lg hover:bg-teal-500">Simpan Laporan</button>
+            <button type="submit" disabled={isSaving} className="px-4 py-1.5 text-xs font-semibold bg-teal-600 text-white rounded-lg hover:bg-teal-500 disabled:opacity-60">
+              {isSaving ? 'Menyimpan...' : 'Simpan Laporan'}
+            </button>
           </div>
         </form>
       )}

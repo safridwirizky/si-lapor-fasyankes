@@ -23,7 +23,6 @@ INSTALLED_APPS = [
     "django_filters",
     # local apps
     "apps.puskesmas",
-    "apps.kunjungan",
     # TODO: tambahkan setelah dibuat dengan pola yang sama seperti "kunjungan":
     # "apps.gigi", "apps.penyakit", "apps.laboratorium", "apps.rujukan",
 ]
