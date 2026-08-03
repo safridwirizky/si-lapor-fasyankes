@@ -138,6 +138,32 @@ export default function App() {
     return saved;
   };
 
+  // Pola yang sama persis diulang untuk 4 laporan lain -- cuma beda endpoint
+  // path dan state setter yang dipanggil.
+  const createKunjunganRecord = async (payload: Omit<KunjunganRecord, 'id'>) => {
+    const saved = await postToApi<KunjunganRecord>('/kunjungan/', payload);
+    setKunjunganData(prev => [saved, ...prev]);
+    return saved;
+  };
+
+  const createPenyakitRecord = async (payload: Omit<PenyakitRecord, 'id'>) => {
+    const saved = await postToApi<PenyakitRecord>('/penyakit/', payload);
+    setPenyakitData(prev => [saved, ...prev]);
+    return saved;
+  };
+
+  const createLabRecord = async (payload: Omit<LabRecord, 'id'>) => {
+    const saved = await postToApi<LabRecord>('/laboratorium/', payload);
+    setLabData(prev => [saved, ...prev]);
+    return saved;
+  };
+
+  const createRujukanRecord = async (payload: Omit<RujukanRecord, 'id'>) => {
+    const saved = await postToApi<RujukanRecord>('/rujukan/', payload);
+    setRujukanData(prev => [saved, ...prev]);
+    return saved;
+  };
+
   // Handle Export based on current tab
   const handleExportCurrent = () => {
     if (activeTab === 'kunjungan' || activeTab === 'overview') {
@@ -286,6 +312,7 @@ export default function App() {
           <KunjunganReportView
             data={kunjunganData}
             setData={setKunjunganData}
+            onCreateRecord={createKunjunganRecord}
             selectedMonth={selectedMonth}
             selectedPuskesmas={selectedPuskesmas}
           />
@@ -305,6 +332,7 @@ export default function App() {
           <Penyakit15ReportView
             data={penyakitData}
             setData={setPenyakitData}
+            onCreateRecord={createPenyakitRecord}
             selectedMonth={selectedMonth}
             selectedPuskesmas={selectedPuskesmas}
           />
@@ -314,6 +342,7 @@ export default function App() {
           <LaboratoriumReportView
             data={labData}
             setData={setLabData}
+            onCreateRecord={createLabRecord}
             selectedMonth={selectedMonth}
             selectedPuskesmas={selectedPuskesmas}
           />
@@ -323,6 +352,7 @@ export default function App() {
           <RujukanReportView
             data={rujukanData}
             setData={setRujukanData}
+            onCreateRecord={createRujukanRecord}
             selectedMonth={selectedMonth}
             selectedPuskesmas={selectedPuskesmas}
           />

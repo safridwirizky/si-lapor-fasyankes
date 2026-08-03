@@ -13,6 +13,7 @@ import { PenyakitRecord, MonthName, PUSKESMAS_LIST, MONTHS } from '../types';
 interface Penyakit15ReportViewProps {
   data: PenyakitRecord[];
   setData: React.Dispatch<React.SetStateAction<PenyakitRecord[]>>;
+  onCreateRecord: (payload: Omit<PenyakitRecord, 'id'>) => Promise<PenyakitRecord>;
   selectedMonth: MonthName | 'Semua';
   selectedPuskesmas: string;
 }
@@ -33,12 +34,15 @@ const COMMON_ICD10 = [
 export const Penyakit15ReportView: React.FC<Penyakit15ReportViewProps> = ({
   data,
   setData,
+  onCreateRecord,
   selectedMonth,
   selectedPuskesmas
 }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Form state
   const [newPkm, setNewPkm] = useState(PUSKESMAS_LIST[0]);
@@ -70,21 +74,27 @@ export const Penyakit15ReportView: React.FC<Penyakit15ReportViewProps> = ({
     }
   };
 
-  const handleAddRecord = (e: React.FormEvent) => {
+  const handleAddRecord = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newRecord: PenyakitRecord = {
-      id: `p-${Date.now()}`,
-      puskesmas: newPkm,
-      month: newMonth,
-      year: 2026,
-      rank: Number(rank),
-      icd10,
-      diagnosa,
-      kasusL: Number(kasusL),
-      kasusP: Number(kasusP)
-    };
-    setData([newRecord, ...data]);
-    setShowAddForm(false);
+    setSaveError(null);
+    setIsSaving(true);
+    try {
+      await onCreateRecord({
+        puskesmas: newPkm,
+        month: newMonth,
+        year: 2026,
+        peringkat: Number(rank),
+        icd10,
+        diagnosa,
+        kasusL: Number(kasusL),
+        kasusP: Number(kasusP),
+      });
+      setShowAddForm(false);
+    } catch (err: any) {
+      setSaveError(err.message || 'Gagal menyimpan data ke server.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleFieldChange = (id: string, field: keyof PenyakitRecord, val: any) => {
@@ -145,7 +155,13 @@ export const Penyakit15ReportView: React.FC<Penyakit15ReportViewProps> = ({
               </select>
             </div>
           </div>
-          
+
+          {saveError && (
+            <div className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-lg p-2">
+              {saveError}
+            </div>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
             <div>
               <label className="block text-slate-700 font-medium mb-1">Puskesmas</label>
@@ -189,7 +205,9 @@ export const Penyakit15ReportView: React.FC<Penyakit15ReportViewProps> = ({
 
           <div className="flex justify-end space-x-2 pt-2">
             <button type="button" onClick={() => setShowAddForm(false)} className="px-3 py-1.5 text-xs text-slate-600 bg-white border rounded-lg">Batal</button>
-            <button type="submit" className="px-4 py-1.5 text-xs font-semibold bg-amber-600 text-white rounded-lg hover:bg-amber-500">Simpan Diagnosa</button>
+            <button type="submit" disabled={isSaving} className="px-4 py-1.5 text-xs font-semibold bg-amber-600 text-white rounded-lg hover:bg-amber-500 disabled:opacity-60">
+              {isSaving ? 'Menyimpan...' : 'Simpan Diagnosa'}
+            </button>
           </div>
         </form>
       )}
@@ -221,7 +239,7 @@ export const Penyakit15ReportView: React.FC<Penyakit15ReportViewProps> = ({
                     <tr key={row.id} className="hover:bg-slate-50 transition-colors">
                       <td className="p-2.5 text-center font-extrabold text-slate-800 border-r border-slate-100">
                         <span className="w-6 h-6 rounded-full bg-slate-100 inline-flex items-center justify-center text-xs text-slate-700">
-                          {row.rank || idx + 1}
+                          {row.peringkat || idx + 1}
                         </span>
                       </td>
                       <td className="p-2.5 border-r border-slate-100 text-center font-mono font-bold text-amber-700">

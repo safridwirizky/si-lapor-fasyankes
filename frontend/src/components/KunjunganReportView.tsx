@@ -13,6 +13,7 @@ import { KunjunganRecord, MonthName, PUSKESMAS_LIST, MONTHS } from '../types';
 interface KunjunganReportViewProps {
   data: KunjunganRecord[];
   setData: React.Dispatch<React.SetStateAction<KunjunganRecord[]>>;
+  onCreateRecord: (payload: Omit<KunjunganRecord, 'id'>) => Promise<KunjunganRecord>;
   selectedMonth: MonthName | 'Semua';
   selectedPuskesmas: string;
 }
@@ -20,12 +21,15 @@ interface KunjunganReportViewProps {
 export const KunjunganReportView: React.FC<KunjunganReportViewProps> = ({
   data,
   setData,
+  onCreateRecord,
   selectedMonth,
   selectedPuskesmas
 }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // New Record Form State
   const [newPkm, setNewPkm] = useState(PUSKESMAS_LIST[0]);
@@ -54,24 +58,30 @@ export const KunjunganReportView: React.FC<KunjunganReportViewProps> = ({
   const totalJiwaL = filteredData.reduce((sum, d) => sum + d.jiwaL, 0);
   const totalJiwaP = filteredData.reduce((sum, d) => sum + d.jiwaP, 0);
 
-  const handleAddRecord = (e: React.FormEvent) => {
+  const handleAddRecord = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newRecord: KunjunganRecord = {
-      id: `k-${Date.now()}`,
-      puskesmas: newPkm,
-      month: newMonth,
-      year: 2026,
-      rajalL: Number(rajalL),
-      rajalP: Number(rajalP),
-      ranapL: Number(ranapL),
-      ranapP: Number(ranapP),
-      jiwaL: Number(jiwaL),
-      jiwaP: Number(jiwaP)
-    };
-    setData([newRecord, ...data]);
-    setShowAddForm(false);
-    // Reset
-    setRajalL(0); setRajalP(0); setRanapL(0); setRanapP(0); setJiwaL(0); setJiwaP(0);
+    setSaveError(null);
+    setIsSaving(true);
+    try {
+      await onCreateRecord({
+        puskesmas: newPkm,
+        month: newMonth,
+        year: 2026,
+        rajalL: Number(rajalL),
+        rajalP: Number(rajalP),
+        ranapL: Number(ranapL),
+        ranapP: Number(ranapP),
+        jiwaL: Number(jiwaL),
+        jiwaP: Number(jiwaP),
+      });
+      setShowAddForm(false);
+      // Reset
+      setRajalL(0); setRajalP(0); setRanapL(0); setRanapP(0); setJiwaL(0); setJiwaP(0);
+    } catch (err: any) {
+      setSaveError(err.message || 'Gagal menyimpan data ke server.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleFieldChange = (id: string, field: keyof KunjunganRecord, val: any) => {
@@ -123,7 +133,13 @@ export const KunjunganReportView: React.FC<KunjunganReportViewProps> = ({
       {showAddForm && (
         <form onSubmit={handleAddRecord} className="bg-emerald-50/70 border border-emerald-200 p-5 rounded-xl space-y-4">
           <h3 className="text-xs font-bold text-emerald-900 uppercase tracking-wider">Input Data Kunjungan Baru</h3>
-          
+
+          {saveError && (
+            <div className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-lg p-2">
+              {saveError}
+            </div>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
             <div>
               <label className="block text-slate-700 font-medium mb-1">Puskesmas</label>
@@ -182,9 +198,10 @@ export const KunjunganReportView: React.FC<KunjunganReportViewProps> = ({
             </button>
             <button
               type="submit"
-              className="px-4 py-1.5 text-xs font-semibold bg-emerald-600 text-white rounded-lg hover:bg-emerald-500"
+              disabled={isSaving}
+              className="px-4 py-1.5 text-xs font-semibold bg-emerald-600 text-white rounded-lg hover:bg-emerald-500 disabled:opacity-60"
             >
-              Simpan Entri
+              {isSaving ? 'Menyimpan...' : 'Simpan Entri'}
             </button>
           </div>
         </form>

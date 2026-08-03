@@ -12,6 +12,7 @@ import { LabRecord, MonthName, PUSKESMAS_LIST, MONTHS } from '../types';
 interface LaboratoriumReportViewProps {
   data: LabRecord[];
   setData: React.Dispatch<React.SetStateAction<LabRecord[]>>;
+  onCreateRecord: (payload: Omit<LabRecord, 'id'>) => Promise<LabRecord>;
   selectedMonth: MonthName | 'Semua';
   selectedPuskesmas: string;
 }
@@ -35,12 +36,15 @@ const COMMON_LAB_TESTS = [
 export const LaboratoriumReportView: React.FC<LaboratoriumReportViewProps> = ({
   data,
   setData,
+  onCreateRecord,
   selectedMonth,
   selectedPuskesmas
 }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Form state
   const [newPkm, setNewPkm] = useState(PUSKESMAS_LIST[0]);
@@ -58,22 +62,28 @@ export const LaboratoriumReportView: React.FC<LaboratoriumReportViewProps> = ({
     return matchMonth && matchPkm && matchSearch;
   });
 
-  const totalL = filteredData.reduce((s, d) => s + d.kasusL, 0);
-  const totalP = filteredData.reduce((s, d) => s + d.kasusP, 0);
+  const totalL = filteredData.reduce((s, d) => s + d.jumlahL, 0);
+  const totalP = filteredData.reduce((s, d) => s + d.jumlahP, 0);
 
-  const handleAddRecord = (e: React.FormEvent) => {
+  const handleAddRecord = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newRecord: LabRecord = {
-      id: `l-${Date.now()}`,
-      puskesmas: newPkm,
-      month: newMonth,
-      year: 2026,
-      elemenData,
-      kasusL: Number(kasusL),
-      kasusP: Number(kasusP)
-    };
-    setData([newRecord, ...data]);
-    setShowAddForm(false);
+    setSaveError(null);
+    setIsSaving(true);
+    try {
+      await onCreateRecord({
+        puskesmas: newPkm,
+        month: newMonth,
+        year: 2026,
+        elemenData,
+        jumlahL: Number(kasusL),
+        jumlahP: Number(kasusP),
+      });
+      setShowAddForm(false);
+    } catch (err: any) {
+      setSaveError(err.message || 'Gagal menyimpan data ke server.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleFieldChange = (id: string, field: keyof LabRecord, val: any) => {
@@ -125,7 +135,13 @@ export const LaboratoriumReportView: React.FC<LaboratoriumReportViewProps> = ({
       {showAddForm && (
         <form onSubmit={handleAddRecord} className="bg-blue-50/70 border border-blue-200 p-5 rounded-xl space-y-4">
           <h3 className="text-xs font-bold text-blue-900 uppercase tracking-wider">Entri Hasil Pemeriksaan Laboratorium</h3>
-          
+
+          {saveError && (
+            <div className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-lg p-2">
+              {saveError}
+            </div>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
             <div>
               <label className="block text-slate-700 font-medium mb-1">Puskesmas</label>
@@ -168,7 +184,9 @@ export const LaboratoriumReportView: React.FC<LaboratoriumReportViewProps> = ({
 
           <div className="flex justify-end space-x-2 pt-2">
             <button type="button" onClick={() => setShowAddForm(false)} className="px-3 py-1.5 text-xs text-slate-600 bg-white border rounded-lg">Batal</button>
-            <button type="submit" className="px-4 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-500">Simpan Data Lab</button>
+            <button type="submit" disabled={isSaving} className="px-4 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-500 disabled:opacity-60">
+              {isSaving ? 'Menyimpan...' : 'Simpan Data Lab'}
+            </button>
           </div>
         </form>
       )}
@@ -193,7 +211,7 @@ export const LaboratoriumReportView: React.FC<LaboratoriumReportViewProps> = ({
               {filteredData.length > 0 ? (
                 filteredData.map((row, idx) => {
                   const isEditing = editingId === row.id;
-                  const total = Number(row.kasusL) + Number(row.kasusP);
+                  const total = Number(row.jumlahL) + Number(row.jumlahP);
                   const isTotalRow = row.elemenData.toLowerCase().includes('total kunjungan');
 
                   return (
@@ -209,14 +227,14 @@ export const LaboratoriumReportView: React.FC<LaboratoriumReportViewProps> = ({
 
                       <td className="p-2 border-r border-slate-100 text-center">
                         {isEditing ? (
-                          <input type="number" min="0" value={row.kasusL} onChange={e => handleFieldChange(row.id, 'kasusL', Number(e.target.value))} className="w-16 text-center p-1 border rounded" />
-                        ) : row.kasusL}
+                          <input type="number" min="0" value={row.jumlahL} onChange={e => handleFieldChange(row.id, 'jumlahL', Number(e.target.value))} className="w-16 text-center p-1 border rounded" />
+                        ) : row.jumlahL}
                       </td>
 
                       <td className="p-2 border-r border-slate-100 text-center">
                         {isEditing ? (
-                          <input type="number" min="0" value={row.kasusP} onChange={e => handleFieldChange(row.id, 'kasusP', Number(e.target.value))} className="w-16 text-center p-1 border rounded" />
-                        ) : row.kasusP}
+                          <input type="number" min="0" value={row.jumlahP} onChange={e => handleFieldChange(row.id, 'jumlahP', Number(e.target.value))} className="w-16 text-center p-1 border rounded" />
+                        ) : row.jumlahP}
                       </td>
 
                       <td className="p-2 border-r border-slate-100 text-center font-bold text-blue-800 bg-blue-50/50">

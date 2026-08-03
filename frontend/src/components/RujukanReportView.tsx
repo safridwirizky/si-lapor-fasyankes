@@ -13,6 +13,7 @@ import { RujukanRecord, MonthName, PUSKESMAS_LIST, MONTHS } from '../types';
 interface RujukanReportViewProps {
   data: RujukanRecord[];
   setData: React.Dispatch<React.SetStateAction<RujukanRecord[]>>;
+  onCreateRecord: (payload: Omit<RujukanRecord, 'id'>) => Promise<RujukanRecord>;
   selectedMonth: MonthName | 'Semua';
   selectedPuskesmas: string;
 }
@@ -28,16 +29,22 @@ const COMMON_FASKES = [
 export const RujukanReportView: React.FC<RujukanReportViewProps> = ({
   data,
   setData,
+  onCreateRecord,
   selectedMonth,
   selectedPuskesmas
 }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Form state
   const [newPkm, setNewPkm] = useState(PUSKESMAS_LIST[0]);
   const [newMonth, setNewMonth] = useState<MonthName>('Januari');
+  // NOTE: nama state tetap "faskesTujuan" demi ringkas, tapi field yang
+  // dikirim ke API (dan dibaca dari data) HARUS "namaFaskesTujuan" -- itu
+  // nama field asli sesuai types.ts & serializer Django.
   const [faskesTujuan, setFaskesTujuan] = useState(COMMON_FASKES[0]);
   const [umumL, setUmumL] = useState(0);
   const [umumP, setUmumP] = useState(0);
@@ -51,7 +58,7 @@ export const RujukanReportView: React.FC<RujukanReportViewProps> = ({
     const matchPkm = selectedPuskesmas === 'Semua' || item.puskesmas === selectedPuskesmas;
     const q = searchQuery.toLowerCase();
     const matchSearch = item.puskesmas.toLowerCase().includes(q) ||
-                        item.faskesTujuan.toLowerCase().includes(q);
+                        item.namaFaskesTujuan.toLowerCase().includes(q);
     return matchMonth && matchPkm && matchSearch;
   });
 
@@ -64,23 +71,29 @@ export const RujukanReportView: React.FC<RujukanReportViewProps> = ({
 
   const grandTotal = totalUmumL + totalUmumP + totalBpjsL + totalBpjsP + totalSktmL + totalSktmP;
 
-  const handleAddRecord = (e: React.FormEvent) => {
+  const handleAddRecord = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newRecord: RujukanRecord = {
-      id: `r-${Date.now()}`,
-      puskesmas: newPkm,
-      faskesTujuan,
-      month: newMonth,
-      year: 2026,
-      umumL: Number(umumL),
-      umumP: Number(umumP),
-      bpjsL: Number(bpjsL),
-      bpjsP: Number(bpjsP),
-      sktmL: Number(sktmL),
-      sktmP: Number(sktmP)
-    };
-    setData([newRecord, ...data]);
-    setShowAddForm(false);
+    setSaveError(null);
+    setIsSaving(true);
+    try {
+      await onCreateRecord({
+        puskesmas: newPkm,
+        namaFaskesTujuan: faskesTujuan,
+        month: newMonth,
+        year: 2026,
+        umumL: Number(umumL),
+        umumP: Number(umumP),
+        bpjsL: Number(bpjsL),
+        bpjsP: Number(bpjsP),
+        sktmL: Number(sktmL),
+        sktmP: Number(sktmP),
+      });
+      setShowAddForm(false);
+    } catch (err: any) {
+      setSaveError(err.message || 'Gagal menyimpan data ke server.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleFieldChange = (id: string, field: keyof RujukanRecord, val: any) => {
@@ -132,7 +145,13 @@ export const RujukanReportView: React.FC<RujukanReportViewProps> = ({
       {showAddForm && (
         <form onSubmit={handleAddRecord} className="bg-purple-50/70 border border-purple-200 p-5 rounded-xl space-y-4">
           <h3 className="text-xs font-bold text-purple-900 uppercase tracking-wider">Entri Laporan Rujukan Pasien Baru</h3>
-          
+
+          {saveError && (
+            <div className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-lg p-2">
+              {saveError}
+            </div>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
             <div>
               <label className="block text-slate-700 font-medium mb-1">Puskesmas Asal</label>
@@ -189,7 +208,9 @@ export const RujukanReportView: React.FC<RujukanReportViewProps> = ({
 
           <div className="flex justify-end space-x-2 pt-2">
             <button type="button" onClick={() => setShowAddForm(false)} className="px-3 py-1.5 text-xs text-slate-600 bg-white border rounded-lg">Batal</button>
-            <button type="submit" className="px-4 py-1.5 text-xs font-semibold bg-purple-600 text-white rounded-lg hover:bg-purple-500">Simpan Rujukan</button>
+            <button type="submit" disabled={isSaving} className="px-4 py-1.5 text-xs font-semibold bg-purple-600 text-white rounded-lg hover:bg-purple-500 disabled:opacity-60">
+              {isSaving ? 'Menyimpan...' : 'Simpan Rujukan'}
+            </button>
           </div>
         </form>
       )}
@@ -233,7 +254,7 @@ export const RujukanReportView: React.FC<RujukanReportViewProps> = ({
                       <td className="p-2.5 border-r border-slate-100 font-bold text-slate-800">{row.puskesmas}</td>
                       <td className="p-2.5 border-r border-slate-100 font-semibold text-purple-900 flex items-center space-x-1.5">
                         <Building className="w-3.5 h-3.5 text-purple-500 flex-shrink-0" />
-                        <span>{row.faskesTujuan}</span>
+                        <span>{row.namaFaskesTujuan}</span>
                       </td>
                       <td className="p-2.5 border-r border-slate-100 text-center text-slate-600">{row.month}</td>
 
