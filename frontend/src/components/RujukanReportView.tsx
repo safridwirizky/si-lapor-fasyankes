@@ -14,6 +14,8 @@ interface RujukanReportViewProps {
   data: RujukanRecord[];
   setData: React.Dispatch<React.SetStateAction<RujukanRecord[]>>;
   onCreateRecord: (payload: Omit<RujukanRecord, 'id'>) => Promise<RujukanRecord>;
+  onUpdateRecord: (id: number, patch: Partial<RujukanRecord>) => Promise<RujukanRecord>;
+  onDeleteRecord: (id: number) => Promise<void>;
   selectedMonth: MonthName | 'Semua';
   selectedPuskesmas: string;
 }
@@ -30,14 +32,18 @@ export const RujukanReportView: React.FC<RujukanReportViewProps> = ({
   data,
   setData,
   onCreateRecord,
+  onUpdateRecord,
+  onDeleteRecord,
   selectedMonth,
   selectedPuskesmas
 }) => {
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [editSavingId, setEditSavingId] = useState<number | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
 
   // Form state
   const [newPkm, setNewPkm] = useState(PUSKESMAS_LIST[0]);
@@ -96,12 +102,33 @@ export const RujukanReportView: React.FC<RujukanReportViewProps> = ({
     }
   };
 
-  const handleFieldChange = (id: string, field: keyof RujukanRecord, val: any) => {
+  const handleFieldChange = (id: number, field: keyof RujukanRecord, val: any) => {
     setData(prev => prev.map(item => item.id === id ? { ...item, [field]: val } : item));
   };
 
-  const handleDelete = (id: string) => {
-    setData(prev => prev.filter(item => item.id !== id));
+  const handleSaveEdit = async (row: RujukanRecord) => {
+    setEditError(null);
+    setEditSavingId(row.id);
+    try {
+      const { id, ...patch } = row;
+      const saved = await onUpdateRecord(id, patch);
+      setData(prev => prev.map(item => (item.id === id ? saved : item)));
+      setEditingId(null);
+    } catch (err: any) {
+      setEditError(err.message || 'Gagal menyimpan perubahan ke server.');
+    } finally {
+      setEditSavingId(null);
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!window.confirm('Hapus data rujukan ini secara permanen?')) return;
+    setEditError(null);
+    try {
+      await onDeleteRecord(id);
+    } catch (err: any) {
+      setEditError(err.message || 'Gagal menghapus data di server.');
+    }
   };
 
   return (
@@ -216,6 +243,11 @@ export const RujukanReportView: React.FC<RujukanReportViewProps> = ({
       )}
 
       {/* Main Table */}
+      {editError && (
+        <div className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-lg p-3">
+          {editError}
+        </div>
+      )}
       <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-xs text-left border-collapse">
@@ -289,7 +321,7 @@ export const RujukanReportView: React.FC<RujukanReportViewProps> = ({
                       <td className="p-2 text-center">
                         <div className="flex items-center justify-center space-x-1">
                           {isEditing ? (
-                            <button onClick={() => setEditingId(null)} className="p-1 text-purple-600 hover:bg-purple-50 rounded"><Check className="w-3.5 h-3.5" /></button>
+                            <button onClick={() => handleSaveEdit(row)} disabled={editSavingId === row.id} className="p-1 text-purple-600 hover:bg-purple-50 rounded disabled:opacity-50"><Check className="w-3.5 h-3.5" /></button>
                           ) : (
                             <button onClick={() => setEditingId(row.id)} className="p-1 text-slate-400 hover:text-slate-600 rounded"><Edit3 className="w-3.5 h-3.5" /></button>
                           )}

@@ -75,6 +75,33 @@ async function postToApi<T>(path: string, payload: any): Promise<T> {
   return res.json();
 }
 
+// Helper: kirim perubahan sebagian (partial update) ke Django lewat PATCH,
+// balikin record hasil update dari server (bukan hasil merge lokal) --
+// supaya field turunan (computed properties, mis. rasio Gigi) selalu ikut
+// ter-refresh sesuai perhitungan backend.
+async function patchToApi<T>(path: string, payload: any): Promise<T> {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const errBody = await res.text();
+    throw new Error(`Gagal update ${path} (HTTP ${res.status}): ${errBody}`);
+  }
+  return res.json();
+}
+
+// Helper: hapus record di Django lewat DELETE. DRF membalas 204 No Content
+// tanpa body kalau berhasil, jadi tidak perlu res.json().
+async function deleteFromApi(path: string): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}${path}`, { method: 'DELETE' });
+  if (!res.ok) {
+    const errBody = await res.text();
+    throw new Error(`Gagal menghapus ${path} (HTTP ${res.status}): ${errBody}`);
+  }
+}
+
 export default function App() {
   // Datasets
   const [kunjunganData, setKunjunganData] = useState<KunjunganRecord[]>([]);
@@ -162,6 +189,60 @@ export default function App() {
     const saved = await postToApi<RujukanRecord>('/rujukan/', payload);
     setRujukanData(prev => [saved, ...prev]);
     return saved;
+  };
+
+  // --- Update (PATCH) & Delete (DELETE) -- pola sama untuk ke-5 laporan ---
+  // update: kirim field yang berubah, lalu timpa item lama di state dengan
+  // hasil dari server (bukan hasil merge lokal), supaya computed field
+  // (kalau ada, mis. rasio di Gigi) selalu konsisten dengan backend.
+  const updateGigiRecord = async (id: number, patch: Partial<GigiRecord>) => {
+    const saved = await patchToApi<GigiRecord>(`/gigi/${id}/`, patch);
+    setGigiData(prev => prev.map(item => (item.id === id ? saved : item)));
+    return saved;
+  };
+  const deleteGigiRecord = async (id: number) => {
+    await deleteFromApi(`/gigi/${id}/`);
+    setGigiData(prev => prev.filter(item => item.id !== id));
+  };
+
+  const updateKunjunganRecord = async (id: number, patch: Partial<KunjunganRecord>) => {
+    const saved = await patchToApi<KunjunganRecord>(`/kunjungan/${id}/`, patch);
+    setKunjunganData(prev => prev.map(item => (item.id === id ? saved : item)));
+    return saved;
+  };
+  const deleteKunjunganRecord = async (id: number) => {
+    await deleteFromApi(`/kunjungan/${id}/`);
+    setKunjunganData(prev => prev.filter(item => item.id !== id));
+  };
+
+  const updatePenyakitRecord = async (id: number, patch: Partial<PenyakitRecord>) => {
+    const saved = await patchToApi<PenyakitRecord>(`/penyakit/${id}/`, patch);
+    setPenyakitData(prev => prev.map(item => (item.id === id ? saved : item)));
+    return saved;
+  };
+  const deletePenyakitRecord = async (id: number) => {
+    await deleteFromApi(`/penyakit/${id}/`);
+    setPenyakitData(prev => prev.filter(item => item.id !== id));
+  };
+
+  const updateLabRecord = async (id: number, patch: Partial<LabRecord>) => {
+    const saved = await patchToApi<LabRecord>(`/laboratorium/${id}/`, patch);
+    setLabData(prev => prev.map(item => (item.id === id ? saved : item)));
+    return saved;
+  };
+  const deleteLabRecord = async (id: number) => {
+    await deleteFromApi(`/laboratorium/${id}/`);
+    setLabData(prev => prev.filter(item => item.id !== id));
+  };
+
+  const updateRujukanRecord = async (id: number, patch: Partial<RujukanRecord>) => {
+    const saved = await patchToApi<RujukanRecord>(`/rujukan/${id}/`, patch);
+    setRujukanData(prev => prev.map(item => (item.id === id ? saved : item)));
+    return saved;
+  };
+  const deleteRujukanRecord = async (id: number) => {
+    await deleteFromApi(`/rujukan/${id}/`);
+    setRujukanData(prev => prev.filter(item => item.id !== id));
   };
 
   // Handle Export based on current tab
@@ -313,6 +394,8 @@ export default function App() {
             data={kunjunganData}
             setData={setKunjunganData}
             onCreateRecord={createKunjunganRecord}
+            onUpdateRecord={updateKunjunganRecord}
+            onDeleteRecord={deleteKunjunganRecord}
             selectedMonth={selectedMonth}
             selectedPuskesmas={selectedPuskesmas}
           />
@@ -323,6 +406,8 @@ export default function App() {
             data={gigiData}
             setData={setGigiData}
             onCreateRecord={createGigiRecord}
+            onUpdateRecord={updateGigiRecord}
+            onDeleteRecord={deleteGigiRecord}
             selectedMonth={selectedMonth}
             selectedPuskesmas={selectedPuskesmas}
           />
@@ -333,6 +418,8 @@ export default function App() {
             data={penyakitData}
             setData={setPenyakitData}
             onCreateRecord={createPenyakitRecord}
+            onUpdateRecord={updatePenyakitRecord}
+            onDeleteRecord={deletePenyakitRecord}
             selectedMonth={selectedMonth}
             selectedPuskesmas={selectedPuskesmas}
           />
@@ -343,6 +430,8 @@ export default function App() {
             data={labData}
             setData={setLabData}
             onCreateRecord={createLabRecord}
+            onUpdateRecord={updateLabRecord}
+            onDeleteRecord={deleteLabRecord}
             selectedMonth={selectedMonth}
             selectedPuskesmas={selectedPuskesmas}
           />
@@ -353,6 +442,8 @@ export default function App() {
             data={rujukanData}
             setData={setRujukanData}
             onCreateRecord={createRujukanRecord}
+            onUpdateRecord={updateRujukanRecord}
+            onDeleteRecord={deleteRujukanRecord}
             selectedMonth={selectedMonth}
             selectedPuskesmas={selectedPuskesmas}
           />
