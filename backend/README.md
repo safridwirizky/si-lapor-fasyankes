@@ -1,76 +1,90 @@
-# Backend - Si Lapor Fasyankes (Django)
+# Backend - SI LAPOR FASYANKES (Django)
 
-Backend Django + DRF + PostgreSQL, menggantikan Express (server.ts) dari repo aslinya.
-Fitur AI analysis (Gemini) sengaja **tidak** dimigrasikan.
+Backend Django REST Framework + PostgreSQL untuk Dinas Kesehatan Kabupaten
+Rote Ndao. Menggantikan backend Express (`server.ts`) dari repo React asli.
+Fitur analisis AI (Gemini) sengaja **tidak** dimigrasikan.
 
 ## Struktur
+
+Semua model laporan ditaruh dalam **satu app** `apps/puskesmas`, bukan
+app terpisah per laporan — lebih simpel untuk skala project ini (5 laporan,
+semuanya berelasi ke master data Puskesmas yang sama).
 
 ```
 backend/
 ├── manage.py
 ├── requirements.txt
-├── .env.example
-├── config/            # settings, urls, wsgi
+├── .env.example        # salin jadi .env, isi sesuai lokal kamu
+├── config/              # settings, urls, wsgi
+├── data/                # file Excel resmi (referensi struktur kolom)
 └── apps/
-    ├── puskesmas/      # model referensi Puskesmas (FK)
-    └── kunjungan/      # TEMPLATE: model, serializer, view, import/export Excel
-        └── services/
-            ├── importer.py   # import Excel via pandas, validasi per baris
-            └── exporter.py   # export Excel via pandas/openpyxl
+    └── puskesmas/
+        ├── models.py       # Puskesmas + 5 model laporan (semua FK ke Puskesmas)
+        ├── serializers.py  # jembatan camelCase (React) <-> snake_case (Django)
+        ├── views.py        # ModelViewSet per laporan (CRUD otomatis + filter)
+        ├── urls.py         # DefaultRouter, daftar semua endpoint
+        ├── admin.py
+        └── migrations/
 ```
 
-App lain (`gigi`, `penyakit`, `laboratorium`, `rujukan`) belum dibuat — tinggal
-duplikasi struktur `apps/kunjungan/` (model, serializer, view, urls, services)
-sesuai field masing-masing di `src/types.ts` React, lalu daftarkan di
-`config/settings.py` (`INSTALLED_APPS`) dan `config/urls.py`.
+### Model laporan yang tersedia
+
+| Model | Endpoint | Field unik per laporan |
+|---|---|---|
+| `KunjunganPasien` | `/api/kunjungan/` | rajal, ranap, jiwa (L/P) |
+| `KesehatanGigiMulut` | `/api/gigi/` | tumpatan, pencabutan, kasus gigi (+ rasio & % rujuk, computed) |
+| `PenyakitTerbanyak` | `/api/penyakit/` | peringkat, ICD-10, diagnosa, kasus (L/P) |
+| `PemeriksaanLaboratorium` | `/api/laboratorium/` | elemen data, jumlah (L/P) |
+| `Rujukan` | `/api/rujukan/` | faskes tujuan, umum/BPJS/SKTM (L/P) |
+
+Semua model laporan berbagi field dasar lewat abstract base class
+(`puskesmas`, `tahun`, `bulan`, `created_at`, `updated_at`).
 
 ## Setup
 
 ```bash
 cd backend
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
 cp .env.example .env
-# lalu edit .env: isi DB_NAME, DB_USER, DB_PASSWORD sesuai PostgreSQL lokal kamu
-
-# buat database dulu di postgres, misalnya:
-# createdb si_lapor_fasyankes
+# edit .env: isi SECRET_KEY, DB_*, CORS_ALLOWED_ORIGINS sesuai lokal kamu
 
 python manage.py migrate
-python manage.py createsuperuser
+python manage.py createsuperuser   # opsional, buat akses /admin/
 python manage.py runserver
 ```
 
-## Endpoint yang tersedia
+API akan jalan di `http://127.0.0.1:8000/api/`. Browsable API DRF bisa
+dibuka langsung lewat browser di path yang sama (mis.
+`http://127.0.0.1:8000/api/kunjungan/`).
 
-| Method | Endpoint | Keterangan |
-|---|---|---|
-| GET/POST | `/api/puskesmas/` | CRUD puskesmas |
-| GET/PUT/DELETE | `/api/puskesmas/<id>/` | detail |
-| GET/POST | `/api/kunjungan/` | CRUD data kunjungan |
-| POST | `/api/kunjungan/import/` | upload file Excel (`multipart/form-data`, field `file`) |
-| GET | `/api/kunjungan/export/` | download Excel (support filter `?puskesmas=&bulan=&tahun=`) |
-| POST | `/api/auth/token/` | login, dapat access & refresh token (JWT) |
-| POST | `/api/auth/token/refresh/` | refresh token |
+## Endpoint per laporan
 
-Semua endpoint (kecuali auth) butuh header `Authorization: Bearer <access_token>`.
+Semua endpoint laporan (`kunjungan`, `gigi`, `penyakit`, `laboratorium`,
+`rujukan`) mendukung operasi standar DRF `ModelViewSet`:
 
-## Menyambungkan ke frontend React
+- `GET /api/<laporan>/` — list (dipaging, 50/halaman)
+- `POST /api/<laporan>/` — buat baru
+- `GET /api/<laporan>/{id}/` — detail satu record
+- `PATCH /api/<laporan>/{id}/` — update sebagian field
+- `DELETE /api/<laporan>/{id}/` — hapus
 
-Di frontend, ganti pemanggilan `server.ts` (Express) dengan base URL Django, contoh:
-
-```ts
-const API_BASE = "http://localhost:8000/api";
+Filter lewat query param, contoh:
+```
+GET /api/kunjungan/?bulan=Januari&tahun=2026&puskesmas__nama=Baa
 ```
 
-Pastikan origin dev server React (`http://localhost:5173`) sudah ada di
-`CORS_ALLOWED_ORIGINS` pada `.env`.
+## Yang belum ada (rencana ke depan)
 
-## Catatan penyimpanan data lama
-
-Data yang sebelumnya cuma tersimpan di `useState` React (App.tsx) sekarang
-persisten di PostgreSQL lewat model `KunjunganRecord` (dan model-model
-serupa yang akan kamu buat). Constraint `unique_together (puskesmas, bulan,
-tahun)` mencegah duplikat data per periode.
+- **Import Excel server-side** — `requirements.txt` sudah menyiapkan
+  `pandas` + `openpyxl` untuk ini, tapi endpoint importer-nya belum dibuat.
+  File Excel resmi di `data/` bisa dipakai sebagai acuan struktur kolom
+  saat membuatnya.
+- **Export Excel server-side** — saat ini export masih dilakukan di
+  frontend (client-side, dari data yang sudah di-fetch). Bisa dipindah ke
+  backend kalau butuh format yang lebih presisi/konsisten dengan file resmi.
+- **Autentikasi** — endpoint saat ini `AllowAny` (belum ada login/permission
+  per Puskesmas). Perlu ditambahkan sebelum dipakai di luar lingkungan
+  development/testing.

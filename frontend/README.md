@@ -1,20 +1,41 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# Frontend - SI LAPOR FASYANKES
 
-# Run and deploy your AI Studio app
+React + TypeScript + Vite. Mengonsumsi backend Django REST Framework
+(lihat `../backend/README.md`) — tidak ada server Node/Express lagi di sisi
+frontend, murni SPA yang fetch ke API.
 
-This contains everything you need to run your app locally.
+## Setup
 
-View your app in AI Studio: https://ai.studio/apps/f49f32ea-2548-4dae-a0d3-4b6420a45352
+```bash
+npm install
+npm run dev
+```
 
-## Run Locally
+Frontend jalan di `http://localhost:5173` (default Vite) atau `:3000`
+tergantung config — pastikan URL ini terdaftar di `CORS_ALLOWED_ORIGINS`
+backend Django (`backend/.env`).
 
-**Prerequisites:**  Node.js
+Base URL API di-hardcode di `src/App.tsx` (`API_BASE_URL`). Ganti langsung
+di situ kalau backend jalan di host/port lain, atau pindahkan ke env
+variable (`VITE_API_BASE_URL`) kalau perlu beda antara dev & production.
 
+## Struktur
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+```
+src/
+├── App.tsx              # state utama, fetch/POST/PATCH/DELETE ke Django
+├── types.ts              # tipe data, HARUS sinkron sama serializer Django
+├── components/
+│   ├── Header.tsx
+│   ├── NavigationTabs.tsx
+│   ├── DashboardOverview.tsx
+│   └── <Laporan>ReportView.tsx   # 1 komponen per laporan (Kunjungan, Gigi, dst)
+└── utils/excelUtil.ts    # export ke .xlsx (client-side)
+```
+
+## Build
+
+```bash
+npm run build      # output ke dist/
+npm run preview    # coba hasil build secara lokal
+```

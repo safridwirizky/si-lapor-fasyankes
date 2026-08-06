@@ -86,9 +86,3 @@ export interface RujukanRecord {
   sktmL: number;
   sktmP: number;
 }
-
-export interface AiAnalysisResponse {
-  summary: string;
-  insights: string[];
-  recommendations: string[];
-}

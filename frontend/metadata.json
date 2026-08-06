@@ -1,6 +1,0 @@
-{
-  "name": "SI LAPOR FASYANKES",
-  "description": "Sistem Informasi Pelaporan Fasilitas Pelayanan Kesehatan - Kabupaten Rote Ndao",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}

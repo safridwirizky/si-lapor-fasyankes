@@ -2,10 +2,6 @@ import React from 'react';
 import { 
   Building2, 
   FileSpreadsheet, 
-  Sparkles, 
-  Upload, 
-  Download, 
-  Activity
 } from 'lucide-react';
 import { MonthName, MONTHS, PUSKESMAS_LIST } from '../types';
 
@@ -14,10 +10,7 @@ interface HeaderProps {
   setSelectedMonth: (m: MonthName | 'Semua') => void;
   selectedPuskesmas: string;
   setSelectedPuskesmas: (p: string) => void;
-  onOpenImportModal: () => void;
   onExportCurrent: () => void;
-  onTriggerAiAnalysis: () => void;
-  isAiLoading: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -25,10 +18,7 @@ export const Header: React.FC<HeaderProps> = ({
   setSelectedMonth,
   selectedPuskesmas,
   setSelectedPuskesmas,
-  onOpenImportModal,
-  onExportCurrent,
-  onTriggerAiAnalysis,
-  isAiLoading
+  onExportCurrent
 }) => {
   return (
     <header className="bg-slate-900 text-white border-b border-slate-800 shadow-lg sticky top-0 z-40">
@@ -88,16 +78,6 @@ export const Header: React.FC<HeaderProps> = ({
               </select>
             </div>
 
-            {/* Import Excel */}
-            <button
-              onClick={onOpenImportModal}
-              className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700 transition-colors shadow-sm"
-              title="Import file Excel (.xlsx)"
-            >
-              <Upload className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Import Excel</span>
-            </button>
-
             {/* Export Excel */}
             <button
               onClick={onExportCurrent}
@@ -106,16 +86,6 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <FileSpreadsheet className="w-3.5 h-3.5" />
               <span>Ekspor Excel</span>
-            </button>
-
-            {/* AI Health Analysis */}
-            <button
-              onClick={onTriggerAiAnalysis}
-              disabled={isAiLoading}
-              className="flex items-center space-x-1.5 px-3.5 py-1.5 text-xs font-semibold bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white rounded-lg transition-all shadow-md shadow-emerald-950/40 disabled:opacity-50 ring-1 ring-emerald-400/30"
-            >
-              <Sparkles className={`w-3.5 h-3.5 ${isAiLoading ? 'animate-spin' : 'text-amber-300'}`} />
-              <span>{isAiLoading ? 'Menganalisis...' : 'Analisis AI Gemini'}</span>
             </button>
 
           </div>
