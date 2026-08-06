@@ -8,6 +8,7 @@ from .models import (
     PenyakitTerbanyak,
     PemeriksaanLaboratorium,
     Rujukan,
+    IcdCode,
 )
 from .serializers import (
     PuskesmasSerializer,
@@ -16,6 +17,7 @@ from .serializers import (
     PenyakitRecordSerializer,
     LabRecordSerializer,
     RujukanRecordSerializer,
+    IcdCodeSerializer,
 )
 
 
@@ -65,3 +67,19 @@ class RujukanViewSet(BaseLaporanViewSet):
     queryset = Rujukan.objects.select_related("puskesmas").all()
     serializer_class = RujukanRecordSerializer
     
+
+class IcdCodeViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Referensi ~18.500 kode ICD-10 (sumber: e-klaim BPJS), read-only.
+    Dipakai frontend untuk fitur cari/autocomplete saat entri diagnosa di
+    laporan Penyakit -- listnya sengaja TIDAK boleh full-load (kepagingnya
+    default 50/halaman), jadi frontend WAJIB kirim ?search=<kata kunci>.
+
+    Contoh: GET /api/icd10/?search=gastritis
+            GET /api/icd10/?search=K29
+    """
+    permission_classes = [permissions.AllowAny]
+    queryset = IcdCode.objects.all()
+    serializer_class = IcdCodeSerializer
+    filter_backends = [filters.SearchFilter]
+    search_fields = ["code", "display"]

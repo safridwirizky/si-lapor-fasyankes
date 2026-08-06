@@ -88,6 +88,26 @@ class KesehatanGigiMulut(LaporanBulananBase):
         return f"Gigi {self.puskesmas} - {self.bulan} {self.tahun}"
 
 
+class IcdCode(models.Model):
+    """
+    Master data kode ICD-10 (sumber: e-klaim BPJS Kesehatan, ~18.500 kode).
+    Independen -- TIDAK di-FK ke PenyakitTerbanyak.icd10, supaya data
+    diagnosa yang sudah diketik manual sebelumnya tidak perlu diubah/divalidasi
+    ulang paksa. Tabel ini murni jadi sumber untuk fitur pencarian/autocomplete
+    di form input Penyakit.
+    """
+    code = models.CharField(max_length=10, unique=True, db_index=True)
+    display = models.CharField(max_length=500)
+
+    class Meta:
+        ordering = ["code"]
+        verbose_name = "Kode ICD-10"
+        verbose_name_plural = "Kode ICD-10"
+
+    def __str__(self):
+        return f"{self.code} - {self.display}"
+
+
 # 3. LAP. 15 BESAR PENYAKIT (1 baris = 1 penyakit dalam ranking 1-15)
 class PenyakitTerbanyak(LaporanBulananBase):
     peringkat = models.PositiveSmallIntegerField(default=0, editable=False)  # 1..15, dihitung otomatis

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   AlertCircle, 
   Plus, 
@@ -6,7 +6,8 @@ import {
   Edit3, 
   Check, 
   Search,
-  BookOpen
+  BookOpen,
+  Loader2
 } from 'lucide-react';
 import { PenyakitRecord, MonthName, PUSKESMAS_LIST, MONTHS } from '../types';
 
@@ -16,22 +17,10 @@ interface Penyakit15ReportViewProps {
   onCreateRecord: (payload: Omit<PenyakitRecord, 'id' | 'peringkat'>) => Promise<PenyakitRecord>;
   onUpdateRecord: (id: number, patch: Partial<PenyakitRecord>) => Promise<PenyakitRecord>;
   onDeleteRecord: (id: number) => Promise<void>;
+  onSearchIcd10: (query: string) => Promise<{ code: string; display: string }[]>;
   selectedMonth: MonthName | 'Semua';
   selectedPuskesmas: string;
 }
-
-const COMMON_ICD10 = [
-  { code: 'J00', name: 'Acute nasopharyngitis [common cold]' },
-  { code: 'I10', name: 'Essential (primary) hypertension' },
-  { code: 'K29.7', name: 'Gastritis, unspecified' },
-  { code: 'M79.1', name: 'Myalgia' },
-  { code: 'E11', name: 'Non-insulin-dependent diabetes mellitus' },
-  { code: 'R50.9', name: 'Fever, unspecified' },
-  { code: 'A09', name: 'Infectious gastroenteritis and colitis' },
-  { code: 'J02.9', name: 'Acute pharyngitis, unspecified' },
-  { code: 'L03', name: 'Cellulitis' },
-  { code: 'K02', name: 'Dental caries' },
-];
 
 export const Penyakit15ReportView: React.FC<Penyakit15ReportViewProps> = ({
   data,
@@ -39,6 +28,7 @@ export const Penyakit15ReportView: React.FC<Penyakit15ReportViewProps> = ({
   onCreateRecord,
   onUpdateRecord,
   onDeleteRecord,
+  onSearchIcd10,
   selectedMonth,
   selectedPuskesmas
 }) => {
@@ -56,10 +46,56 @@ export const Penyakit15ReportView: React.FC<Penyakit15ReportViewProps> = ({
   // Peringkat TIDAK diminta dari user -- dihitung otomatis oleh backend
   // berdasarkan total kasus terbanyak dalam grup Puskesmas+Bulan+Tahun
   // (lihat PenyakitViewSet.perform_create/update di Django).
-  const [icd10, setIcd10] = useState('J00');
-  const [diagnosa, setDiagnosa] = useState('Acute nasopharyngitis [common cold]');
+  const [icd10, setIcd10] = useState('');
+  const [diagnosa, setDiagnosa] = useState('');
   const [kasusL, setKasusL] = useState(0);
   const [kasusP, setKasusP] = useState(0);
+
+  // Pencarian ICD-10 (live, dari ~18.500 kode di database Django, sumber
+  // e-klaim BPJS -- BUKAN 10 preset hardcoded lagi). Ketik minimal 2
+  // karakter, hasil di-debounce 300ms supaya tidak nembak API tiap huruf.
+  const [icdQuery, setIcdQuery] = useState('');
+  const [icdResults, setIcdResults] = useState<{ code: string; display: string }[]>([]);
+  const [icdSearching, setIcdSearching] = useState(false);
+  const [icdDropdownOpen, setIcdDropdownOpen] = useState(false);
+  const icdBoxRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (icdQuery.trim().length < 2) {
+      setIcdResults([]);
+      return;
+    }
+    setIcdSearching(true);
+    const timer = setTimeout(async () => {
+      try {
+        const results = await onSearchIcd10(icdQuery);
+        setIcdResults(results);
+      } catch {
+        setIcdResults([]);
+      } finally {
+        setIcdSearching(false);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [icdQuery, onSearchIcd10]);
+
+  // Klik di luar box pencarian ICD-10 -> tutup dropdown hasil
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (icdBoxRef.current && !icdBoxRef.current.contains(e.target as Node)) {
+        setIcdDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handlePickIcd = (item: { code: string; display: string }) => {
+    setIcd10(item.code);
+    setDiagnosa(item.display);
+    setIcdQuery(`${item.code} - ${item.display}`);
+    setIcdDropdownOpen(false);
+  };
 
   const filteredData = data.filter(item => {
     const matchMonth = selectedMonth === 'Semua' || item.month === selectedMonth;
@@ -74,16 +110,12 @@ export const Penyakit15ReportView: React.FC<Penyakit15ReportViewProps> = ({
   const totalL = filteredData.reduce((s, d) => s + d.kasusL, 0);
   const totalP = filteredData.reduce((s, d) => s + d.kasusP, 0);
 
-  const handleSelectPreset = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const selected = COMMON_ICD10.find(c => c.code === e.target.value);
-    if (selected) {
-      setIcd10(selected.code);
-      setDiagnosa(selected.name);
-    }
-  };
-
   const handleAddRecord = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!icd10.trim() || !diagnosa.trim()) {
+      setSaveError('Cari dan pilih diagnosa ICD-10 dari daftar terlebih dahulu.');
+      return;
+    }
     setSaveError(null);
     setIsSaving(true);
     try {
@@ -97,6 +129,12 @@ export const Penyakit15ReportView: React.FC<Penyakit15ReportViewProps> = ({
         kasusP: Number(kasusP),
       });
       setShowAddForm(false);
+      setIcd10('');
+      setDiagnosa('');
+      setIcdQuery('');
+      setIcdResults([]);
+      setKasusL(0);
+      setKasusP(0);
     } catch (err: any) {
       setSaveError(err.message || 'Gagal menyimpan data ke server.');
     } finally {
@@ -175,13 +213,6 @@ export const Penyakit15ReportView: React.FC<Penyakit15ReportViewProps> = ({
         <form onSubmit={handleAddRecord} className="bg-amber-50/70 border border-amber-200 p-5 rounded-xl space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-bold text-amber-900 uppercase tracking-wider">Entri Diagnosa 15 Besar Penyakit</h3>
-            <div className="flex items-center space-x-2 text-xs">
-              <BookOpen className="w-3.5 h-3.5 text-amber-700" />
-              <span className="text-amber-800 font-medium">Preset ICD-10:</span>
-              <select onChange={handleSelectPreset} className="bg-white border p-1 rounded text-xs">
-                {COMMON_ICD10.map(c => <option key={c.code} value={c.code}>{c.code} - {c.name}</option>)}
-              </select>
-            </div>
           </div>
 
           {saveError && (
@@ -205,14 +236,58 @@ export const Penyakit15ReportView: React.FC<Penyakit15ReportViewProps> = ({
               </select>
             </div>
 
-            <div>
-              <label className="block text-slate-700 font-medium mb-1">Kode ICD-10</label>
-              <input type="text" value={icd10} onChange={e => setIcd10(e.target.value)} className="w-full bg-white border p-2 rounded-lg font-mono uppercase" />
-            </div>
+            <div className="lg:col-span-2 relative" ref={icdBoxRef}>
+              <label className="block text-slate-700 font-medium mb-1">
+                Cari Diagnosa (ICD-10) <span className="text-slate-400 font-normal">-- database e-klaim, ~18.500 kode</span>
+              </label>
+              <div className="relative">
+                <BookOpen className="w-3.5 h-3.5 text-amber-600 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={icdQuery}
+                  onChange={e => {
+                    setIcdQuery(e.target.value);
+                    setIcdDropdownOpen(true);
+                    // Kalau orang ngetik ulang setelah pernah pilih, anggap
+                    // pilihan lama tidak berlaku lagi sampai dia pilih baru.
+                    setIcd10('');
+                    setDiagnosa('');
+                  }}
+                  onFocus={() => setIcdDropdownOpen(true)}
+                  placeholder="Ketik kode atau nama penyakit, mis. 'gastritis' atau 'K29'"
+                  className="w-full bg-white border p-2 pl-8 rounded-lg"
+                  autoComplete="off"
+                />
+                {icdSearching && (
+                  <Loader2 className="w-3.5 h-3.5 text-amber-600 animate-spin absolute right-2.5 top-1/2 -translate-y-1/2" />
+                )}
+              </div>
 
-            <div className="lg:col-span-2">
-              <label className="block text-slate-700 font-medium mb-1">Nama Diagnosa Penyakit</label>
-              <input type="text" value={diagnosa} onChange={e => setDiagnosa(e.target.value)} className="w-full bg-white border p-2 rounded-lg" />
+              {icdDropdownOpen && icdQuery.trim().length >= 2 && (
+                <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                  {icdResults.length > 0 ? (
+                    icdResults.map(item => (
+                      <button
+                        type="button"
+                        key={item.code}
+                        onClick={() => handlePickIcd(item)}
+                        className="w-full text-left px-3 py-2 hover:bg-amber-50 border-b border-slate-100 last:border-b-0"
+                      >
+                        <span className="font-mono font-bold text-amber-700">{item.code}</span>
+                        <span className="text-slate-600"> - {item.display}</span>
+                      </button>
+                    ))
+                  ) : !icdSearching ? (
+                    <p className="px-3 py-2 text-slate-400">Tidak ditemukan, coba kata kunci lain.</p>
+                  ) : null}
+                </div>
+              )}
+
+              {icd10 && (
+                <p className="mt-1 text-[11px] text-emerald-700">
+                  Terpilih: <span className="font-mono font-bold">{icd10}</span> - {diagnosa}
+                </p>
+              )}
             </div>
 
             <div>

@@ -6,6 +6,7 @@ from .models import (
     PenyakitTerbanyak,
     PemeriksaanLaboratorium,
     Rujukan,
+    IcdCode,
 )
 
 
@@ -44,3 +45,9 @@ class PemeriksaanLaboratoriumAdmin(admin.ModelAdmin):
 class RujukanAdmin(admin.ModelAdmin):
     list_display = ["puskesmas", "bulan", "tahun", "nama_faskes_tujuan", "umum_l", "umum_p"]
     list_filter = ["tahun", "bulan", "puskesmas"]
+
+
+@admin.register(IcdCode)
+class IcdCodeAdmin(admin.ModelAdmin):
+    list_display = ["code", "display"]
+    search_fields = ["code", "display"]

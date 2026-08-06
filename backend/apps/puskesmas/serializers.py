@@ -6,6 +6,7 @@ from .models import (
     PenyakitTerbanyak,
     PemeriksaanLaboratorium,
     Rujukan,
+    IcdCode,
 )
 
 
@@ -103,3 +104,9 @@ class RujukanRecordSerializer(serializers.ModelSerializer):
             "id", "puskesmas", "year", "month", "namaFaskesTujuan",
             "umumL", "umumP", "bpjsL", "bpjsP", "sktmL", "sktmP",
         ]
+
+
+class IcdCodeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = IcdCode
+        fields = ["code", "display"]

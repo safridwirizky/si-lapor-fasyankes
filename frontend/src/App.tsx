@@ -100,6 +100,19 @@ async function deleteFromApi(path: string): Promise<void> {
   }
 }
 
+// Helper: cari kode ICD-10 lewat endpoint /icd10/?search=... (~18.500 kode
+// di database, jadi TIDAK boleh di-fetch semua sekaligus -- selalu lewat
+// pencarian, dan hasilnya sudah dipaging 50/halaman oleh DRF).
+async function searchIcd10Api(query: string): Promise<{ code: string; display: string }[]> {
+  if (!query.trim()) return [];
+  const res = await fetch(`${API_BASE_URL}/icd10/?search=${encodeURIComponent(query)}`);
+  if (!res.ok) {
+    throw new Error(`Gagal mencari ICD-10 (HTTP ${res.status})`);
+  }
+  const json = await res.json();
+  return Array.isArray(json) ? json : (json.results ?? []);
+}
+
 export default function App() {
   // Datasets
   const [kunjunganData, setKunjunganData] = useState<KunjunganRecord[]>([]);
@@ -349,6 +362,7 @@ export default function App() {
             onCreateRecord={createPenyakitRecord}
             onUpdateRecord={updatePenyakitRecord}
             onDeleteRecord={deletePenyakitRecord}
+            onSearchIcd10={searchIcd10Api}
             selectedMonth={selectedMonth}
             selectedPuskesmas={selectedPuskesmas}
           />

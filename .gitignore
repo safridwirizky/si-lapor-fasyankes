@@ -10,3 +10,4 @@ coverage/
 .venv/
 venv/
 __pycache__/
+data/

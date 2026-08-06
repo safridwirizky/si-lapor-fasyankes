@@ -6,6 +6,7 @@ from .views import (
     PenyakitViewSet,
     LaboratoriumViewSet,
     RujukanViewSet,
+    IcdCodeViewSet,
 )
 
 router = DefaultRouter()
@@ -15,6 +16,7 @@ router.register("gigi", GigiViewSet)
 router.register("penyakit", PenyakitViewSet)
 router.register("laboratorium", LaboratoriumViewSet)
 router.register("rujukan", RujukanViewSet)
+router.register("icd10", IcdCodeViewSet, basename="icd10")
 
 urlpatterns = router.urls
 
