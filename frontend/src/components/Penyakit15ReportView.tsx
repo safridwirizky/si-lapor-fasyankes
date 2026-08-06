@@ -13,7 +13,7 @@ import { PenyakitRecord, MonthName, PUSKESMAS_LIST, MONTHS } from '../types';
 interface Penyakit15ReportViewProps {
   data: PenyakitRecord[];
   setData: React.Dispatch<React.SetStateAction<PenyakitRecord[]>>;
-  onCreateRecord: (payload: Omit<PenyakitRecord, 'id'>) => Promise<PenyakitRecord>;
+  onCreateRecord: (payload: Omit<PenyakitRecord, 'id' | 'peringkat'>) => Promise<PenyakitRecord>;
   onUpdateRecord: (id: number, patch: Partial<PenyakitRecord>) => Promise<PenyakitRecord>;
   onDeleteRecord: (id: number) => Promise<void>;
   selectedMonth: MonthName | 'Semua';
@@ -53,7 +53,9 @@ export const Penyakit15ReportView: React.FC<Penyakit15ReportViewProps> = ({
   // Form state
   const [newPkm, setNewPkm] = useState(PUSKESMAS_LIST[0]);
   const [newMonth, setNewMonth] = useState<MonthName>('Januari');
-  const [rank, setRank] = useState(1);
+  // Peringkat TIDAK diminta dari user -- dihitung otomatis oleh backend
+  // berdasarkan total kasus terbanyak dalam grup Puskesmas+Bulan+Tahun
+  // (lihat PenyakitViewSet.perform_create/update di Django).
   const [icd10, setIcd10] = useState('J00');
   const [diagnosa, setDiagnosa] = useState('Acute nasopharyngitis [common cold]');
   const [kasusL, setKasusL] = useState(0);
@@ -89,7 +91,6 @@ export const Penyakit15ReportView: React.FC<Penyakit15ReportViewProps> = ({
         puskesmas: newPkm,
         month: newMonth,
         year: 2026,
-        peringkat: Number(rank),
         icd10,
         diagnosa,
         kasusL: Number(kasusL),
@@ -202,11 +203,6 @@ export const Penyakit15ReportView: React.FC<Penyakit15ReportViewProps> = ({
               <select value={newMonth} onChange={(e) => setNewMonth(e.target.value as MonthName)} className="w-full bg-white border rounded-lg p-2">
                 {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
               </select>
-            </div>
-
-            <div>
-              <label className="block text-slate-700 font-medium mb-1">Peringkat (Rank 1-15)</label>
-              <input type="number" min="1" max="15" value={rank} onChange={e => setRank(Number(e.target.value))} className="w-full bg-white border p-2 rounded-lg" />
             </div>
 
             <div>

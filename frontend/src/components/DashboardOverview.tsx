@@ -14,7 +14,8 @@ import {
   GigiRecord, 
   PenyakitRecord, 
   LabRecord, 
-  RujukanRecord 
+  RujukanRecord,
+  MonthName
 } from '../types';
 import { 
   ResponsiveContainer, 
@@ -36,6 +37,8 @@ interface DashboardOverviewProps {
   penyakitData: PenyakitRecord[];
   labData: LabRecord[];
   rujukanData: RujukanRecord[];
+  selectedMonth: MonthName | 'Semua';
+  selectedPuskesmas: string;
 }
 
 export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
@@ -43,8 +46,26 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   gigiData,
   penyakitData,
   labData,
-  rujukanData
+  rujukanData,
+  selectedMonth,
+  selectedPuskesmas
 }) => {
+  // Filter semua dataset sesuai dropdown Bulan & Puskesmas di header, SEBELUM
+  // dipakai untuk hitung KPI/chart apapun di bawah -- ini yang bikin seluruh
+  // dashboard (termasuk "Penyakit Terbanyak") ikut update begitu filter
+  // berubah, bukan cuma menampilkan agregat seluruh Kabupaten setiap saat.
+  const matchesFilter = (item: { month: MonthName; puskesmas: string }) => {
+    const matchMonth = selectedMonth === 'Semua' || item.month === selectedMonth;
+    const matchPkm = selectedPuskesmas === 'Semua' || item.puskesmas === selectedPuskesmas;
+    return matchMonth && matchPkm;
+  };
+
+  kunjunganData = kunjunganData.filter(matchesFilter);
+  gigiData = gigiData.filter(matchesFilter);
+  penyakitData = penyakitData.filter(matchesFilter);
+  labData = labData.filter(matchesFilter);
+  rujukanData = rujukanData.filter(matchesFilter);
+
   // Aggregate KPIs
   const totalRajal = kunjunganData.reduce((acc, curr) => acc + curr.rajalL + curr.rajalP, 0);
   const totalRanap = kunjunganData.reduce((acc, curr) => acc + curr.ranapL + curr.ranapP, 0);

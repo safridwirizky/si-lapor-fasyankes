@@ -65,6 +65,10 @@ class PenyakitRecordSerializer(serializers.ModelSerializer):
     class Meta:
         model = PenyakitTerbanyak
         fields = ["id", "puskesmas", "year", "month", "peringkat", "icd10", "diagnosa", "kasusL", "kasusP"]
+        # peringkat DIHITUNG OTOMATIS oleh PenyakitViewSet (lihat views.py) dari
+        # jumlah kasus terbanyak dalam grup Puskesmas+Bulan+Tahun -- bukan input
+        # manual, supaya tidak ada urutan ranking yang salah/duplikat.
+        read_only_fields = ["peringkat"]
 
 
 class LabRecordSerializer(serializers.ModelSerializer):

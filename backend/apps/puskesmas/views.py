@@ -48,6 +48,10 @@ class GigiViewSet(BaseLaporanViewSet):
 
 
 class PenyakitViewSet(BaseLaporanViewSet):
+    # peringkat dihitung otomatis lewat signal post_save/post_delete di
+    # models.py (PenyakitTerbanyak.recalculate_rankings) -- berlaku untuk
+    # semua jalur (API ini, Django Admin, manage.py shell), jadi ViewSet ini
+    # tidak perlu override perform_create/update/destroy secara manual.
     queryset = PenyakitTerbanyak.objects.select_related("puskesmas").all()
     serializer_class = PenyakitRecordSerializer
 

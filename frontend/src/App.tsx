@@ -164,9 +164,21 @@ export default function App() {
     return saved;
   };
 
-  const createPenyakitRecord = async (payload: Omit<PenyakitRecord, 'id'>) => {
+  // Khusus Penyakit: field "peringkat" dihitung ulang oleh backend untuk
+  // SEMUA baris dalam grup Puskesmas+Bulan+Tahun yang sama setiap kali ada
+  // baris ditambah/diubah/dihapus (lihat PenyakitViewSet di Django). Artinya
+  // baris LAIN yang sedang tampil di tabel bisa saja ranking-nya ikut
+  // berubah, padahal cuma satu baris yang di-create/update/delete -- jadi
+  // tidak cukup patch satu item di state seperti 4 laporan lain, harus
+  // refetch seluruh data Penyakit supaya ranking yang tampil tetap akurat.
+  const refetchPenyakitData = async () => {
+    const fresh = await fetchAllFromApi<PenyakitRecord>('/penyakit/');
+    setPenyakitData(fresh);
+  };
+
+  const createPenyakitRecord = async (payload: Omit<PenyakitRecord, 'id' | 'peringkat'>) => {
     const saved = await postToApi<PenyakitRecord>('/penyakit/', payload);
-    setPenyakitData(prev => [saved, ...prev]);
+    await refetchPenyakitData();
     return saved;
   };
 
@@ -207,13 +219,16 @@ export default function App() {
   };
 
   const updatePenyakitRecord = async (id: number, patch: Partial<PenyakitRecord>) => {
-    const saved = await patchToApi<PenyakitRecord>(`/penyakit/${id}/`, patch);
-    setPenyakitData(prev => prev.map(item => (item.id === id ? saved : item)));
+    // peringkat read-only di backend -- kalau ikut kekirim, Django cuma
+    // mengabaikannya, tapi lebih rapi dibuang dulu di sini.
+    const { peringkat, ...safePatch } = patch;
+    const saved = await patchToApi<PenyakitRecord>(`/penyakit/${id}/`, safePatch);
+    await refetchPenyakitData();
     return saved;
   };
   const deletePenyakitRecord = async (id: number) => {
     await deleteFromApi(`/penyakit/${id}/`);
-    setPenyakitData(prev => prev.filter(item => item.id !== id));
+    await refetchPenyakitData();
   };
 
   const updateLabRecord = async (id: number, patch: Partial<LabRecord>) => {
@@ -298,6 +313,8 @@ export default function App() {
             penyakitData={penyakitData}
             labData={labData}
             rujukanData={rujukanData}
+            selectedMonth={selectedMonth}
+            selectedPuskesmas={selectedPuskesmas}
           />
         )}
 

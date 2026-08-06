@@ -48,6 +48,7 @@ class KunjunganPasien(LaporanBulananBase):
 
     class Meta:
         unique_together = ("puskesmas", "tahun", "bulan")
+        ordering = ["tahun", "bulan", "puskesmas__nama"]
         verbose_name = "Laporan Kunjungan Pasien"
         verbose_name_plural = "Laporan Kunjungan Pasien"
 
@@ -89,20 +90,65 @@ class KesehatanGigiMulut(LaporanBulananBase):
 
 # 3. LAP. 15 BESAR PENYAKIT (1 baris = 1 penyakit dalam ranking 1-15)
 class PenyakitTerbanyak(LaporanBulananBase):
-    peringkat = models.PositiveSmallIntegerField()  # 1..15
+    peringkat = models.PositiveSmallIntegerField(default=0, editable=False)  # 1..15, dihitung otomatis
     icd10 = models.CharField(max_length=20)
     diagnosa = models.CharField(max_length=255)
     kasus_l = models.PositiveIntegerField(default=0)
     kasus_p = models.PositiveIntegerField(default=0)
 
     class Meta:
-        unique_together = ("puskesmas", "tahun", "bulan", "peringkat")
-        ordering = ["tahun", "bulan", "peringkat"]
+        ordering = ["tahun", "bulan", "-kasus_l", "-kasus_p"]
         verbose_name = "Laporan 15 Besar Penyakit"
         verbose_name_plural = "Laporan 15 Besar Penyakit"
 
+    @classmethod
+    def recalculate_rankings(cls, puskesmas_id, tahun, bulan):
+        """
+        Hitung ulang 'peringkat' untuk semua baris penyakit dalam satu grup
+        Puskesmas+Bulan+Tahun, berdasarkan total kasus (L+P) terbanyak.
+        Dipanggil otomatis oleh view setelah create/update/delete -- peringkat
+        BUKAN input manual, supaya tidak ada urutan yang salah/duplikat/lupa
+        di-update saat data kasus berubah.
+
+        Dua fase update dipakai supaya tidak tabrakan sama record lain yang
+        kebetulan masih pegang angka peringkat yang sama saat proses berjalan.
+        """
+        qs = cls.objects.filter(
+            puskesmas_id=puskesmas_id, tahun=tahun, bulan=bulan
+        ).order_by("-kasus_l", "-kasus_p", "icd10")
+        ids_in_order = list(qs.values_list("id", flat=True))
+
+        # Fase 1: geser semua ke angka sementara yang jelas tidak akan
+        # tabrakan dengan peringkat manapun (1..15 dst).
+        for offset, obj_id in enumerate(ids_in_order, start=1):
+            cls.objects.filter(id=obj_id).update(peringkat=10_000 + offset)
+
+        # Fase 2: baru assign peringkat final 1, 2, 3, ...
+        for rank, obj_id in enumerate(ids_in_order, start=1):
+            cls.objects.filter(id=obj_id).update(peringkat=rank)
+
     def __str__(self):
         return f"{self.icd10} - {self.diagnosa} ({self.puskesmas}, {self.bulan} {self.tahun})"
+
+
+def _recalc_penyakit_rankings(sender, instance, **kwargs):
+    # queryset.update() di dalam recalculate_rankings TIDAK memicu sinyal ini
+    # lagi (update() itu query langsung ke DB, bukan lewat save() per objek),
+    # jadi aman dari infinite loop.
+    PenyakitTerbanyak.recalculate_rankings(instance.puskesmas_id, instance.tahun, instance.bulan)
+    # .update() di atas tidak menyentuh objek Python 'instance' yang sedang
+    # dipegang DRF -- refresh manual di sini supaya response API (mis. hasil
+    # POST/PATCH) langsung menampilkan peringkat yang sudah benar, bukan nilai
+    # lama. Untuk kasus post_delete, instance-nya sudah tidak ada di DB lagi
+    # (DoesNotExist) -- itu wajar, cukup diabaikan.
+    try:
+        instance.refresh_from_db(fields=["peringkat"])
+    except PenyakitTerbanyak.DoesNotExist:
+        pass
+
+
+models.signals.post_save.connect(_recalc_penyakit_rankings, sender=PenyakitTerbanyak)
+models.signals.post_delete.connect(_recalc_penyakit_rankings, sender=PenyakitTerbanyak)
 
 
 # 4. LAP. LABORATORIUM (elemen data & sub kategori dinormalisasi jadi baris,
@@ -114,6 +160,7 @@ class PemeriksaanLaboratorium(LaporanBulananBase):
     jumlah_p = models.PositiveIntegerField(default=0)
 
     class Meta:
+        ordering = ["tahun", "bulan", "puskesmas__nama", "elemen_data"]
         verbose_name = "Laporan Pemeriksaan Laboratorium"
         verbose_name_plural = "Laporan Pemeriksaan Laboratorium"
 
@@ -133,6 +180,7 @@ class Rujukan(LaporanBulananBase):
     sktm_p = models.PositiveIntegerField(default=0)
 
     class Meta:
+        ordering = ["tahun", "bulan", "puskesmas__nama", "nama_faskes_tujuan"]
         verbose_name = "Laporan Rujukan"
         verbose_name_plural = "Laporan Rujukan"
 
