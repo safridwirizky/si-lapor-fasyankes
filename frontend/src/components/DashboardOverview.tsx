@@ -56,7 +56,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 
   const totalLabKunjungan = labData
     .filter(l => l.elemenData.toLowerCase().includes('total kunjungan'))
-    .reduce((acc, curr) => acc + curr.kasusL + curr.kasusP, 0);
+    .reduce((acc, curr) => acc + curr.jumlahL + curr.jumlahP, 0);
 
   const totalRujukan = rujukanData.reduce(
     (acc, curr) => acc + curr.umumL + curr.umumP + curr.bpjsL + curr.bpjsP + curr.sktmL + curr.sktmP, 
@@ -91,7 +91,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   const rujukanFaskesMap: { [key: string]: number } = {};
   rujukanData.forEach(r => {
     const total = r.umumL + r.umumP + r.bpjsL + r.bpjsP + r.sktmL + r.sktmP;
-    rujukanFaskesMap[r.faskesTujuan] = (rujukanFaskesMap[r.faskesTujuan] || 0) + total;
+    rujukanFaskesMap[r.namaFaskesTujuan] = (rujukanFaskesMap[r.namaFaskesTujuan] || 0) + total;
   });
   const rujukanPieData = Object.keys(rujukanFaskesMap).map(faskes => ({
     name: faskes,
