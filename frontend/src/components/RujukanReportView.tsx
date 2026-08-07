@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Share2, 
   Plus, 
@@ -6,7 +6,8 @@ import {
   Edit3, 
   Check, 
   Search,
-  Building 
+  Building,
+  ChevronDown
 } from 'lucide-react';
 import { RujukanRecord, MonthName, PUSKESMAS_LIST, MONTHS } from '../types';
 
@@ -51,13 +52,31 @@ export const RujukanReportView: React.FC<RujukanReportViewProps> = ({
   // NOTE: nama state tetap "faskesTujuan" demi ringkas, tapi field yang
   // dikirim ke API (dan dibaca dari data) HARUS "namaFaskesTujuan" -- itu
   // nama field asli sesuai types.ts & serializer Django.
-  const [faskesTujuan, setFaskesTujuan] = useState(COMMON_FASKES[0]);
+  const [faskesTujuan, setFaskesTujuan] = useState('');
   const [umumL, setUmumL] = useState(0);
   const [umumP, setUmumP] = useState(0);
   const [bpjsL, setBpjsL] = useState(0);
   const [bpjsP, setBpjsP] = useState(0);
   const [sktmL, setSktmL] = useState(0);
   const [sktmP, setSktmP] = useState(0);
+
+  // Combobox custom (ganti <input list>+<datalist> bawaan browser) -- ketik
+  // bebas ATAU pilih dari daftar preset faskes.
+  const [faskesDropdownOpen, setFaskesDropdownOpen] = useState(false);
+  const faskesBoxRef = useRef<HTMLDivElement>(null);
+  const filteredFaskes = COMMON_FASKES.filter(f =>
+    f.toLowerCase().includes(faskesTujuan.toLowerCase())
+  );
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (faskesBoxRef.current && !faskesBoxRef.current.contains(e.target as Node)) {
+        setFaskesDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const filteredData = data.filter(item => {
     const matchMonth = selectedMonth === 'Semua' || item.month === selectedMonth;
@@ -79,6 +98,10 @@ export const RujukanReportView: React.FC<RujukanReportViewProps> = ({
 
   const handleAddRecord = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!faskesTujuan.trim()) {
+      setSaveError('Nama Faskes Tujuan Rujukan tidak boleh kosong.');
+      return;
+    }
     setSaveError(null);
     setIsSaving(true);
     try {
@@ -95,6 +118,10 @@ export const RujukanReportView: React.FC<RujukanReportViewProps> = ({
         sktmP: Number(sktmP),
       });
       setShowAddForm(false);
+      setFaskesTujuan('');
+      setUmumL(0); setUmumP(0);
+      setBpjsL(0); setBpjsP(0);
+      setSktmL(0); setSktmP(0);
     } catch (err: any) {
       setSaveError(err.message || 'Gagal menyimpan data ke server.');
     } finally {
@@ -194,41 +221,83 @@ export const RujukanReportView: React.FC<RujukanReportViewProps> = ({
               </select>
             </div>
 
-            <div className="lg:col-span-2">
+            <div className="lg:col-span-2 relative" ref={faskesBoxRef}>
               <label className="block text-slate-700 font-medium mb-1">Nama Faskes Tujuan Rujukan</label>
-              <input
-                type="text"
-                list="faskes-presets"
-                value={faskesTujuan}
-                onChange={e => setFaskesTujuan(e.target.value)}
-                className="w-full bg-white border p-2 rounded-lg"
-              />
-              <datalist id="faskes-presets">
-                {COMMON_FASKES.map(f => <option key={f} value={f} />)}
-              </datalist>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={faskesTujuan}
+                  onChange={e => { setFaskesTujuan(e.target.value); setFaskesDropdownOpen(true); }}
+                  onFocus={() => setFaskesDropdownOpen(true)}
+                  placeholder="Ketik atau pilih dari daftar..."
+                  className="w-full bg-white border p-2 pr-8 rounded-lg"
+                  autoComplete="off"
+                />
+                <ChevronDown
+                  onClick={() => setFaskesDropdownOpen(o => !o)}
+                  className="w-4 h-4 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 cursor-pointer"
+                />
+              </div>
+
+              {faskesDropdownOpen && (
+                <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-56 overflow-y-auto">
+                  {filteredFaskes.length > 0 ? (
+                    filteredFaskes.map(f => (
+                      <button
+                        type="button"
+                        key={f}
+                        onClick={() => { setFaskesTujuan(f); setFaskesDropdownOpen(false); }}
+                        className="w-full text-left px-3 py-2 hover:bg-purple-50 border-b border-slate-100 last:border-b-0 text-slate-700"
+                      >
+                        {f}
+                      </button>
+                    ))
+                  ) : (
+                    <p className="px-3 py-2 text-slate-400">Tidak ada preset cocok -- teks yang kamu ketik tetap dipakai.</p>
+                  )}
+                </div>
+              )}
             </div>
 
             <div>
-              <label className="block text-slate-700 font-medium mb-1">Pasien UMUM (L / P)</label>
-              <div className="flex space-x-2">
-                <input type="number" min="0" placeholder="L" value={umumL} onChange={e => setUmumL(Number(e.target.value))} className="w-1/2 p-2 bg-white border rounded-lg" />
-                <input type="number" min="0" placeholder="P" value={umumP} onChange={e => setUmumP(Number(e.target.value))} className="w-1/2 p-2 bg-white border rounded-lg" />
+              <label className="block text-slate-700 font-medium mb-1">Pasien UMUM</label>
+              <div className="space-y-2">
+                <div>
+                  <span className="block text-[10px] text-slate-500 mb-0.5">Laki-laki (L)</span>
+                  <input type="number" min="0" value={umumL} onChange={e => setUmumL(Number(e.target.value))} className="w-full p-2 bg-white border rounded-lg" />
+                </div>
+                <div>
+                  <span className="block text-[10px] text-slate-500 mb-0.5">Perempuan (P)</span>
+                  <input type="number" min="0" value={umumP} onChange={e => setUmumP(Number(e.target.value))} className="w-full p-2 bg-white border rounded-lg" />
+                </div>
               </div>
             </div>
 
             <div>
-              <label className="block text-slate-700 font-medium mb-1">Pasien BPJS/KIS (L / P)</label>
-              <div className="flex space-x-2">
-                <input type="number" min="0" placeholder="L" value={bpjsL} onChange={e => setBpjsL(Number(e.target.value))} className="w-1/2 p-2 bg-white border rounded-lg" />
-                <input type="number" min="0" placeholder="P" value={bpjsP} onChange={e => setBpjsP(Number(e.target.value))} className="w-1/2 p-2 bg-white border rounded-lg" />
+              <label className="block text-slate-700 font-medium mb-1">Pasien BPJS/KIS</label>
+              <div className="space-y-2">
+                <div>
+                  <span className="block text-[10px] text-slate-500 mb-0.5">Laki-laki (L)</span>
+                  <input type="number" min="0" value={bpjsL} onChange={e => setBpjsL(Number(e.target.value))} className="w-full p-2 bg-white border rounded-lg" />
+                </div>
+                <div>
+                  <span className="block text-[10px] text-slate-500 mb-0.5">Perempuan (P)</span>
+                  <input type="number" min="0" value={bpjsP} onChange={e => setBpjsP(Number(e.target.value))} className="w-full p-2 bg-white border rounded-lg" />
+                </div>
               </div>
             </div>
 
             <div>
-              <label className="block text-slate-700 font-medium mb-1">Pasien SKTM (L / P)</label>
-              <div className="flex space-x-2">
-                <input type="number" min="0" placeholder="L" value={sktmL} onChange={e => setSktmL(Number(e.target.value))} className="w-1/2 p-2 bg-white border rounded-lg" />
-                <input type="number" min="0" placeholder="P" value={sktmP} onChange={e => setSktmP(Number(e.target.value))} className="w-1/2 p-2 bg-white border rounded-lg" />
+              <label className="block text-slate-700 font-medium mb-1">Pasien SKTM</label>
+              <div className="space-y-2">
+                <div>
+                  <span className="block text-[10px] text-slate-500 mb-0.5">Laki-laki (L)</span>
+                  <input type="number" min="0" value={sktmL} onChange={e => setSktmL(Number(e.target.value))} className="w-full p-2 bg-white border rounded-lg" />
+                </div>
+                <div>
+                  <span className="block text-[10px] text-slate-500 mb-0.5">Perempuan (P)</span>
+                  <input type="number" min="0" value={sktmP} onChange={e => setSktmP(Number(e.target.value))} className="w-full p-2 bg-white border rounded-lg" />
+                </div>
               </div>
             </div>
           </div>

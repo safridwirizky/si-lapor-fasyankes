@@ -167,50 +167,87 @@ export const KunjunganReportView: React.FC<KunjunganReportViewProps> = ({
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
-            <div>
-              <label className="block text-slate-700 font-medium mb-1">Puskesmas</label>
-              <select 
-                value={newPkm} 
-                onChange={(e) => setNewPkm(e.target.value as any)}
-                className="w-full bg-white border border-slate-300 rounded-lg p-2"
-              >
-                {PUSKESMAS_LIST.map(p => <option key={p} value={p}>{p}</option>)}
-              </select>
-            </div>
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_2fr] gap-4 text-xs">
+            <div className="bg-emerald-50/70 border border-emerald-100 rounded-xl shadow-sm p-4 space-y-3">
+              <p className="font-semibold text-emerald-800 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                Lokasi & Periode
+              </p>
+              <div>
+                <label className="block text-slate-700 font-medium mb-1">Puskesmas</label>
+                <select 
+                  value={newPkm} 
+                  onChange={(e) => setNewPkm(e.target.value as any)}
+                  className="w-full bg-white border border-slate-200 rounded-lg p-2"
+                >
+                  {PUSKESMAS_LIST.map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
 
-            <div>
-              <label className="block text-slate-700 font-medium mb-1">Bulan Pelaporan</label>
-              <select 
-                value={newMonth} 
-                onChange={(e) => setNewMonth(e.target.value as MonthName)}
-                className="w-full bg-white border border-slate-300 rounded-lg p-2"
-              >
-                {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-slate-700 font-medium mb-1">Rawat Jalan (L / P)</label>
-              <div className="flex space-x-2">
-                <input type="number" min="0" placeholder="Laki-laki" value={rajalL} onChange={e => setRajalL(Number(e.target.value))} className="w-1/2 p-2 bg-white border rounded-lg" />
-                <input type="number" min="0" placeholder="Perempuan" value={rajalP} onChange={e => setRajalP(Number(e.target.value))} className="w-1/2 p-2 bg-white border rounded-lg" />
+              <div>
+                <label className="block text-slate-700 font-medium mb-1">Bulan Pelaporan</label>
+                <select 
+                  value={newMonth} 
+                  onChange={(e) => setNewMonth(e.target.value as MonthName)}
+                  className="w-full bg-white border border-slate-200 rounded-lg p-2"
+                >
+                  {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
               </div>
             </div>
 
-            <div>
-              <label className="block text-slate-700 font-medium mb-1">Rawat Inap (L / P)</label>
-              <div className="flex space-x-2">
-                <input type="number" min="0" placeholder="Laki-laki" value={ranapL} onChange={e => setRanapL(Number(e.target.value))} className="w-1/2 p-2 bg-white border rounded-lg" />
-                <input type="number" min="0" placeholder="Perempuan" value={ranapP} onChange={e => setRanapP(Number(e.target.value))} className="w-1/2 p-2 bg-white border rounded-lg" />
-              </div>
-            </div>
+            <div className="bg-emerald-50/70 border border-emerald-100 rounded-xl shadow-sm p-4">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-sky-50/70 border border-sky-100 rounded-lg p-3">
+                  <p className="font-semibold text-sky-800 mb-2 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
+                    Rawat Jalan
+                  </p>
+                  <div className="space-y-2">
+                    <div>
+                      <span className="block text-[10px] text-slate-500 mb-0.5">Laki-laki (L)</span>
+                      <input type="number" min="0" value={rajalL} onChange={e => setRajalL(Number(e.target.value))} className="w-full p-2 bg-white border border-slate-200 rounded-lg" />
+                    </div>
+                    <div>
+                      <span className="block text-[10px] text-slate-500 mb-0.5">Perempuan (P)</span>
+                      <input type="number" min="0" value={rajalP} onChange={e => setRajalP(Number(e.target.value))} className="w-full p-2 bg-white border border-slate-200 rounded-lg" />
+                    </div>
+                  </div>
+                </div>
 
-            <div>
-              <label className="block text-slate-700 font-medium mb-1">Gangguan Jiwa (L / P)</label>
-              <div className="flex space-x-2">
-                <input type="number" min="0" placeholder="Laki-laki" value={jiwaL} onChange={e => setJiwaL(Number(e.target.value))} className="w-1/2 p-2 bg-white border rounded-lg" />
-                <input type="number" min="0" placeholder="Perempuan" value={jiwaP} onChange={e => setJiwaP(Number(e.target.value))} className="w-1/2 p-2 bg-white border rounded-lg" />
+                <div className="bg-amber-50/70 border border-amber-100 rounded-lg p-3">
+                  <p className="font-semibold text-amber-800 mb-2 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                    Rawat Inap
+                  </p>
+                  <div className="space-y-2">
+                    <div>
+                      <span className="block text-[10px] text-slate-500 mb-0.5">Laki-laki (L)</span>
+                      <input type="number" min="0" value={ranapL} onChange={e => setRanapL(Number(e.target.value))} className="w-full p-2 bg-white border border-slate-200 rounded-lg" />
+                    </div>
+                    <div>
+                      <span className="block text-[10px] text-slate-500 mb-0.5">Perempuan (P)</span>
+                      <input type="number" min="0" value={ranapP} onChange={e => setRanapP(Number(e.target.value))} className="w-full p-2 bg-white border border-slate-200 rounded-lg" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-purple-50/70 border border-purple-100 rounded-lg p-3">
+                  <p className="font-semibold text-purple-800 mb-2 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+                    Gangguan Jiwa
+                  </p>
+                  <div className="space-y-2">
+                    <div>
+                      <span className="block text-[10px] text-slate-500 mb-0.5">Laki-laki (L)</span>
+                      <input type="number" min="0" value={jiwaL} onChange={e => setJiwaL(Number(e.target.value))} className="w-full p-2 bg-white border border-slate-200 rounded-lg" />
+                    </div>
+                    <div>
+                      <span className="block text-[10px] text-slate-500 mb-0.5">Perempuan (P)</span>
+                      <input type="number" min="0" value={jiwaP} onChange={e => setJiwaP(Number(e.target.value))} className="w-full p-2 bg-white border border-slate-200 rounded-lg" />
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

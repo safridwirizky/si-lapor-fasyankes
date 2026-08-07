@@ -238,7 +238,7 @@ export const Penyakit15ReportView: React.FC<Penyakit15ReportViewProps> = ({
 
             <div className="lg:col-span-2 relative" ref={icdBoxRef}>
               <label className="block text-slate-700 font-medium mb-1">
-                Cari Diagnosa (ICD-10) <span className="text-slate-400 font-normal">-- database e-klaim, ~18.500 kode</span>
+                Cari Diagnosa (ICD-10)
               </label>
               <div className="relative">
                 <BookOpen className="w-3.5 h-3.5 text-amber-600 absolute left-2.5 top-1/2 -translate-y-1/2" />

@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   TestTube2, 
   Plus, 
   Trash2, 
   Edit3, 
   Check, 
-  Search 
+  Search,
+  ChevronDown
 } from 'lucide-react';
 import { LabRecord, MonthName, PUSKESMAS_LIST, MONTHS } from '../types';
 
@@ -55,9 +56,28 @@ export const LaboratoriumReportView: React.FC<LaboratoriumReportViewProps> = ({
   // Form state
   const [newPkm, setNewPkm] = useState(PUSKESMAS_LIST[0]);
   const [newMonth, setNewMonth] = useState<MonthName>('Januari');
-  const [elemenData, setElemenData] = useState(COMMON_LAB_TESTS[0]);
+  const [elemenData, setElemenData] = useState('');
   const [kasusL, setKasusL] = useState(0);
   const [kasusP, setKasusP] = useState(0);
+
+  // Combobox custom (ganti <input list>+<datalist> bawaan browser yang
+  // tampilannya kaku & tidak bisa distyle) -- ketik bebas ATAU pilih dari
+  // daftar preset, hasil filter otomatis sesuai ketikan.
+  const [elemenDropdownOpen, setElemenDropdownOpen] = useState(false);
+  const elemenBoxRef = useRef<HTMLDivElement>(null);
+  const filteredLabTests = COMMON_LAB_TESTS.filter(t =>
+    t.toLowerCase().includes(elemenData.toLowerCase())
+  );
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (elemenBoxRef.current && !elemenBoxRef.current.contains(e.target as Node)) {
+        setElemenDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const filteredData = data.filter(item => {
     const matchMonth = selectedMonth === 'Semua' || item.month === selectedMonth;
@@ -73,6 +93,10 @@ export const LaboratoriumReportView: React.FC<LaboratoriumReportViewProps> = ({
 
   const handleAddRecord = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!elemenData.trim()) {
+      setSaveError('Jenis Pemeriksaan (Elemen Data) tidak boleh kosong.');
+      return;
+    }
     setSaveError(null);
     setIsSaving(true);
     try {
@@ -85,6 +109,9 @@ export const LaboratoriumReportView: React.FC<LaboratoriumReportViewProps> = ({
         jumlahP: Number(kasusP),
       });
       setShowAddForm(false);
+      setElemenData('');
+      setKasusL(0);
+      setKasusP(0);
     } catch (err: any) {
       setSaveError(err.message || 'Gagal menyimpan data ke server.');
     } finally {
@@ -184,18 +211,42 @@ export const LaboratoriumReportView: React.FC<LaboratoriumReportViewProps> = ({
               </select>
             </div>
 
-            <div className="lg:col-span-2">
+            <div className="lg:col-span-2 relative" ref={elemenBoxRef}>
               <label className="block text-slate-700 font-medium mb-1">Jenis Pemeriksaan (Elemen Data)</label>
-              <input
-                type="text"
-                list="lab-presets"
-                value={elemenData}
-                onChange={e => setElemenData(e.target.value)}
-                className="w-full bg-white border p-2 rounded-lg"
-              />
-              <datalist id="lab-presets">
-                {COMMON_LAB_TESTS.map(t => <option key={t} value={t} />)}
-              </datalist>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={elemenData}
+                  onChange={e => { setElemenData(e.target.value); setElemenDropdownOpen(true); }}
+                  onFocus={() => setElemenDropdownOpen(true)}
+                  placeholder="Ketik atau pilih dari daftar..."
+                  className="w-full bg-white border p-2 pr-8 rounded-lg"
+                  autoComplete="off"
+                />
+                <ChevronDown
+                  onClick={() => setElemenDropdownOpen(o => !o)}
+                  className="w-4 h-4 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 cursor-pointer"
+                />
+              </div>
+
+              {elemenDropdownOpen && (
+                <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-56 overflow-y-auto">
+                  {filteredLabTests.length > 0 ? (
+                    filteredLabTests.map(t => (
+                      <button
+                        type="button"
+                        key={t}
+                        onClick={() => { setElemenData(t); setElemenDropdownOpen(false); }}
+                        className="w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-slate-100 last:border-b-0 text-slate-700"
+                      >
+                        {t}
+                      </button>
+                    ))
+                  ) : (
+                    <p className="px-3 py-2 text-slate-400">Tidak ada preset cocok -- teks yang kamu ketik tetap dipakai.</p>
+                  )}
+                </div>
+              )}
             </div>
 
             <div>
