@@ -159,7 +159,9 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
               <Users className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-2xl font-bold text-slate-900 mt-2">{(totalRajal + totalRanap).toLocaleString('id-ID')}</p>
+          <p className={`text-2xl font-bold mt-2 ${(totalRajal + totalRanap) === 0 ? 'text-slate-400' : 'text-slate-900'}`}>
+            {(totalRajal + totalRanap).toLocaleString('id-ID')}
+          </p>
           <div className="flex items-center space-x-2 text-xs text-slate-500 mt-2">
             <span className="text-emerald-600 font-medium">{totalRajal.toLocaleString('id-ID')} Rajal</span>
             <span>•</span>
@@ -175,7 +177,9 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
               <Smile className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-2xl font-bold text-slate-900 mt-2">{rasioGigi}</p>
+          <p className={`text-2xl font-bold mt-2 ${(totalTumpatan + totalPencabutan) === 0 ? 'text-slate-400' : 'text-slate-900'}`}>
+            {rasioGigi}
+          </p>
           <div className="flex items-center space-x-2 text-xs text-slate-500 mt-2">
             <span>{totalTumpatan} Tumpatan</span>
             <span>/</span>
@@ -191,11 +195,16 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
               <AlertCircle className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-lg font-bold text-slate-900 mt-2 truncate">
-            {topDiseasesChart[0] ? `${topDiseasesChart[0].code} - ${topDiseasesChart[0].name.split('[')[0]}` : 'ISPA / Nasopharyngitis'}
+          <p 
+            className={`text-lg font-bold mt-2 truncate ${topDiseasesChart[0] ? 'text-slate-900' : 'text-slate-400'}`}
+            title={topDiseasesChart[0] ? `${topDiseasesChart[0].code} - ${topDiseasesChart[0].name}` : undefined}
+          >
+            {topDiseasesChart[0] ? `${topDiseasesChart[0].code} - ${topDiseasesChart[0].name.split('[')[0]}` : 'Tidak ada data'}
           </p>
           <p className="text-xs text-slate-500 mt-2">
-            Top 1 Kasus Tertinggi di Rote Ndao
+            {topDiseasesChart[0]
+              ? `Top 1 Kasus Tertinggi di ${selectedPuskesmas === 'Semua' ? 'Kab. Rote Ndao' : selectedPuskesmas}`
+              : 'Belum ada laporan penyakit untuk filter ini'}
           </p>
         </div>
 
@@ -207,7 +216,9 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
               <TestTube2 className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-2xl font-bold text-slate-900 mt-2">{totalLabKunjungan.toLocaleString('id-ID')}</p>
+          <p className={`text-2xl font-bold mt-2 ${totalLabKunjungan === 0 ? 'text-slate-400' : 'text-slate-900'}`}>
+            {totalLabKunjungan.toLocaleString('id-ID')}
+          </p>
           <p className="text-xs text-slate-500 mt-2">
             Total Kunjungan Lab Terdata
           </p>
@@ -221,7 +232,9 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
               <Share2 className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-2xl font-bold text-slate-900 mt-2">{totalRujukan.toLocaleString('id-ID')}</p>
+          <p className={`text-2xl font-bold mt-2 ${totalRujukan === 0 ? 'text-slate-400' : 'text-slate-900'}`}>
+            {totalRujukan.toLocaleString('id-ID')}
+          </p>
           <p className="text-xs text-slate-500 mt-2">
             Pasien Dirujuk ke RSUD
           </p>
@@ -327,13 +340,17 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             <div className="grid grid-cols-2 gap-4 mt-6">
               <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
                 <span className="text-xs font-semibold text-slate-500">Kunjungan Jiwa</span>
-                <p className="text-2xl font-black text-slate-800 mt-1">{totalJiwa} <span className="text-xs font-normal text-slate-500">pasien</span></p>
+                <p className={`text-2xl font-black mt-1 ${totalJiwa === 0 ? 'text-slate-400' : 'text-slate-800'}`}>
+                  {totalJiwa} <span className="text-xs font-normal text-slate-500">pasien</span>
+                </p>
                 <p className="text-[11px] text-emerald-600 mt-1 font-medium">Pelayanan ODGJ / Kesehatan Jiwa</p>
               </div>
 
               <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
                 <span className="text-xs font-semibold text-slate-500">Total Rawat Inap</span>
-                <p className="text-2xl font-black text-slate-800 mt-1">{totalRanap} <span className="text-xs font-normal text-slate-500">pasien</span></p>
+                <p className={`text-2xl font-black mt-1 ${totalRanap === 0 ? 'text-slate-400' : 'text-slate-800'}`}>
+                  {totalRanap} <span className="text-xs font-normal text-slate-500">pasien</span>
+                </p>
                 <p className="text-[11px] text-teal-600 mt-1 font-medium">Puskesmas Perawatan</p>
               </div>
             </div>
